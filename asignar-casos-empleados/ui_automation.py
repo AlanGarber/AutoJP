@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Automatiza una UI web a partir de un CSV (una pasada completa por fila).
+Asigna casos a cada empleado en una UI web a partir de un CSV (una pasada por fila).
 
 Por cada fila:
-  1. Escribe la columna 1 en la search bar y presiona Enter.
+  1. Escribe el caso (columna 1) en la search bar y presiona Enter.
   2. Abre el dropdown y elige una opción.
-  3. Presiona Tab, escribe la columna 2 y presiona Enter.
-  4. Hace click en el botón.
+  3. Presiona Tab, escribe el empleado (columna 2) y presiona Enter.
+  4. Hace click en el botón de asignación.
 
 Instalación:
     pip install playwright

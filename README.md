@@ -6,7 +6,7 @@ Repositorio de automatizaciones para el flujo diario del equipo. Cada automatiza
 
 | Carpeta | Qué hace |
 |---|---|
-| [`ui-desde-csv`](ui-desde-csv/README.md) | Carga datos en una UI web desde un CSV, fila por fila. |
+| [`asignar-casos-empleados`](asignar-casos-empleados/README.md) | Asigna casos a cada empleado en una UI web según un CSV, fila por fila. |
 
 ## Agregar una nueva
 

@@ -1,11 +1,11 @@
-# UI desde CSV
+# Asignar casos a cada empleado según CSV
 
-Automatiza una UI web a partir de un CSV. Por cada fila:
+Asigna casos a empleados en una UI web a partir de un CSV. Por cada fila:
 
-1. Escribe la columna 1 en la search bar y presiona Enter.
+1. Escribe el caso (columna 1) en la search bar y presiona Enter.
 2. Abre el dropdown y elige una opción.
-3. Presiona Tab, escribe la columna 2 y presiona Enter.
-4. Hace click en el botón.
+3. Presiona Tab, escribe el empleado (columna 2) y presiona Enter.
+4. Hace click en el botón de asignación.
 
 Todo está en un solo archivo: `ui_automation.py`.
 
@@ -26,7 +26,7 @@ Playwright tiene un grabador que escribe el código por vos.
 playwright codegen https://TU-APP-INTERNA
 ```
 
-Se abren dos ventanas: el navegador con la app y el **Inspector**. Hacé el flujo a mano una vez (search bar, dropdown, opción, Tab, valor, botón). El Inspector muestra una línea por cada acción, por ejemplo:
+Se abren dos ventanas: el navegador con la app y el **Inspector**. Hacé el flujo a mano una vez (search bar, dropdown, opción, Tab, empleado, botón). El Inspector muestra una línea por cada acción, por ejemplo:
 
 ```python
 page.get_by_placeholder("Search").click()
@@ -49,19 +49,19 @@ Si la app es interna, necesitás estar en la red o en la VPN.
 Abrí `ui_automation.py` y completá:
 
 - `APP_URL`: la URL de la app.
-- `SEARCH_INPUT`: la search bar.
+- `SEARCH_INPUT`: la search bar donde se busca el caso.
 - `DROPDOWN`: el elemento que abre el dropdown.
 - `DROPDOWN_OPTION`: el texto de la opción a elegir.
-- `SUBMIT_BUTTON`: el botón final.
+- `SUBMIT_BUTTON`: el botón de asignación.
 
 Si el CSV usa `;` como separador (común con Excel en configuración regional de Argentina), cambiá `CSV_DELIMITER = ";"`.
 
 ## 4. Preparar el CSV
 
-La primera columna es el código y la segunda el nombre. El script espera una fila de encabezado (`CSV_HAS_HEADER = True`).
+La primera columna es el caso y la segunda el empleado. El script espera una fila de encabezado (`CSV_HAS_HEADER = True`).
 
 ```csv
-codigo,nombre
+caso,empleado
 JPV2026113-000000,Alan David Garber
 ```
 
@@ -72,7 +72,7 @@ Guardalo en UTF-8 para que no se rompan las tildes y la ñ. Un ejemplo listo est
 Entrá a esta carpeta y corré el script desde ahí:
 
 ```bash
-cd ui-desde-csv
+cd asignar-casos-empleados
 ```
 
 Probá primero con `datos_ejemplo.csv` (2 filas) o con 2 o 3 filas de tu archivo. Después:
@@ -88,7 +88,7 @@ python ui_automation.py datos.csv
 
 Al terminar:
 
-- `resultados.csv`: el estado (`OK` o `ERROR`) de cada fila.
+- `resultados.csv`: el estado (`OK` o `ERROR`) de cada caso.
 - `error_fila_N.png`: captura de la pantalla donde falló la fila N.
 
 ## Notas
