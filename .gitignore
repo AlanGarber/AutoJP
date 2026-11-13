@@ -1,3 +1,5 @@
 __pycache__/
 resultados.csv
 error_fila_*.png
+reporte_no_respondidos_*.csv
+reporte_no_respondidos_*.html
