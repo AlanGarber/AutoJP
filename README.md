@@ -65,11 +65,11 @@ codigo,nombre
 JPV2026113-000000,Alan David Garber
 ```
 
-Guardalo en UTF-8 para que no se rompan las tildes y la ñ.
+Guardalo en UTF-8 para que no se rompan las tildes y la ñ. Un ejemplo listo está en `datos_ejemplo.csv`.
 
 ## 5. Ejecutar
 
-Probá primero con 2 o 3 filas. Después:
+Probá primero con `datos_ejemplo.csv` (2 filas) o con 2 o 3 filas de tu archivo. Después:
 
 ```bash
 python ui_automation.py datos.csv
