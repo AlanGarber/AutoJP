@@ -3,7 +3,7 @@
 Reasigna casos a empleados en Pega a partir de un archivo XLSX. Por cada fila:
 
 1. Busca el JPV (columna B) en la search bar y confirma la búsqueda.
-2. Si el tipo de caso (columna D) es **Miscellaneous**: **Actions > Change Case Type**, elige **Amendment** en el dropdown **Select New Case Type** y hace click en **Submit**.
+2. Si el tipo de caso (columna D) es **Miscellaneous** y aparece **Change case type** en el menú **Actions**: elige **Amendment** en el dropdown **Select New Case Type** y hace click en **Submit**. Si no aparece, sigue con Reassign.
 3. Abre **Actions** y elige **Reassign**. Si **Reassign** no aparece en el menú, elige **Step By Step:** y después **Reassign**.
 4. Elige el assignee (columna A) en el dropdown **operator**.
 5. Hace click en **Submit** y **Close**. No hace falta **Save**: al reasignar no hay cambios que guardar.
@@ -67,7 +67,8 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 - `OPERATOR_LABEL`: el label del dropdown **operator**, donde se elige el assignee. Por defecto `"operator"`.
 - `SUBMIT_BUTTON` y `CLOSE_BUTTON`: los botones de cada paso.
 - `CHANGE_CASE_TYPE_OPTION`: la opción **Change case type** dentro del menú Actions.
-- `STEP_BY_STEP_OPTION` y `REASSIGN_CHECK_MS`: el menuitem **Step By Step:** (se usa si **Reassign** no aparece en el menú) y cuánto esperar a que aparezca **Reassign**.
+- `STEP_BY_STEP_OPTION`: el menuitem **Step By Step:** (se usa si **Reassign** no aparece en el menú).
+- `MENU_CHECK_MS`: cuánto esperar a que aparezca una opción del menú **Actions** antes de decidir si se usa.
 - `NEW_CASE_TYPE_LABEL`: el label del dropdown **Select New Case Type**.
 
 **Archivo y navegador**

@@ -57,7 +57,7 @@ PEGA_FRAME_TIMEOUT_MS = 15000                       # cuánto buscar el iframe c
 ACTIONS_MENU = "role=button[name='Actions']"        # PegaGadget Actions
 REASSIGN_OPTION = "role=menuitem[name='Reassign']"  # PegaGadget Reassign
 STEP_BY_STEP_OPTION = "role=menuitem[name='Step By Step:']"  # opción que se usa si Reassign no aparece en Actions
-REASSIGN_CHECK_MS = 2000                            # cuánto esperar a que aparezca Reassign antes de usar Step By Step
+MENU_CHECK_MS = 2000                                # cuánto esperar a que aparezca una opción del menú Actions
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
 SUBMIT_BUTTON = "role=button[name='Submit']"        # PegaGadget Submit
 CLOSE_BUTTON = "role=button[name='Close']"          # PegaGadget Close
@@ -145,10 +145,10 @@ class StepError(Exception):
     """Error en un paso de una fila. El mensaje incluye el nombre del paso."""
 
 
-def reassign_visible(pega: FrameLocator) -> bool:
-    """True si la opción Reassign aparece en el menú Actions dentro de REASSIGN_CHECK_MS."""
+def menu_option_visible(pega: FrameLocator, selector: str) -> bool:
+    """True si la opción aparece en el menú Actions dentro de MENU_CHECK_MS."""
     try:
-        pega.locator(REASSIGN_OPTION).wait_for(state="visible", timeout=REASSIGN_CHECK_MS)
+        pega.locator(selector).wait_for(state="visible", timeout=MENU_CHECK_MS)
         return True
     except Exception:  # noqa: BLE001
         return False
@@ -189,10 +189,11 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
         paso = "iframe de Pega (botón Actions)"
         pega = find_pega_frame(page)
 
-        # 2) Solo para Miscellaneous: Actions > Change Case Type > Amendment > Submit
-        if case_type == CASE_TYPE_TRIGGER:
-            paso = "Actions (cambio de tipo)"
-            pega.locator(ACTIONS_MENU).click()
+        # 2) Actions. Solo para Miscellaneous y si aparece Change case type:
+        #    Change case type > Amendment > Submit, y vuelve a abrir Actions.
+        paso = "Actions"
+        pega.locator(ACTIONS_MENU).click()
+        if case_type == CASE_TYPE_TRIGGER and menu_option_visible(pega, CHANGE_CASE_TYPE_OPTION):
             paso = "Change case type"
             pega.locator(CHANGE_CASE_TYPE_OPTION).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
@@ -202,11 +203,13 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
             paso = "Submit (cambio de tipo)"
             pega.locator(SUBMIT_BUTTON).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
+            paso = "Actions (tras cambio de tipo)"
+            pega.locator(ACTIONS_MENU).click()
+        elif case_type == CASE_TYPE_TRIGGER:
+            log.info("Tipo Miscellaneous sin Change case type en el menú: sigue con Reassign")
 
-        # 3) Actions > Reassign (si Reassign no aparece: Step By Step, y después Reassign)
-        paso = "Actions"
-        pega.locator(ACTIONS_MENU).click()
-        if not reassign_visible(pega):
+        # 3) Reassign (si no aparece: Step By Step, y después Reassign)
+        if not menu_option_visible(pega, REASSIGN_OPTION):
             paso = "Step By Step"
             pega.locator(STEP_BY_STEP_OPTION).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
