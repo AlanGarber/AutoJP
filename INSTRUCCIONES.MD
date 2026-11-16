@@ -42,7 +42,7 @@ Tiene que ser uno de estos archivos:
 
 - `Distribution of Cases (Today).xlsx` (mañana)
 - `Distribution.xlsx` (tarde)
-- `Distribution Failed.xlsx` (failed)
+- `Distribution Failed.xlsx` (failed): **todavía no está implementada**. No la uses por ahora.
 
 ## Paso 2: Arrastrarlo a la carpeta del script
 
@@ -66,7 +66,7 @@ Elegí el comando según el nombre del archivo que bajaste:
 |---|---|
 | `Distribution of Cases (Today).xlsx` (mañana) | `python ui_automation.py "Distribution of Cases (Today).xlsx"` |
 | `Distribution.xlsx` (tarde) | `python ui_automation.py "Distribution.xlsx"` |
-| `Distribution Failed.xlsx` (failed) | `python ui_automation.py "Distribution Failed.xlsx"` |
+| `Distribution Failed.xlsx` (failed) | Todavía no está implementada |
 
 Copiá el comando completo, pegalo en la terminal y apretá Enter.
 
