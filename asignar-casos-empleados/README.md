@@ -20,7 +20,7 @@ playwright install chromium
 
 Si `playwright install chromium` falla con `ETIMEDOUT` o un error de descarga, la red corporativa está bloqueando la descarga. Dos opciones:
 
-- **Usar Chrome o Edge ya instalados (recomendado):** en `ui_automation.py` dejá `BROWSER_CHANNEL = "chrome"` (o `"msedge"`). No hace falta descargar nada.
+- **Usar Chrome o Edge ya instalados (recomendado):** en `ui_automation.py` dejá `BROWSER_CHANNEL = "chrome"` (o `"msedge"`). No hace falta descargar nada. Para codegen, usá la opción `--channel chrome` (ver paso 2).
 - **Configurar el proxy y reintentar:** en PowerShell, `$env:HTTPS_PROXY="http://PROXY:PUERTO"` y después `playwright install chromium`. La dirección del proxy la pide IT.
 
 ## 2. Sacar los selectores con codegen
@@ -28,10 +28,12 @@ Si `playwright install chromium` falla con `ETIMEDOUT` o un error de descarga, l
 Playwright tiene un grabador que escribe el código por vos.
 
 ```bash
-playwright codegen https://TU-APP-INTERNA
+playwright codegen --channel chrome https://TU-APP-INTERNA
 ```
 
-Se abren dos ventanas: el navegador con la app y el **Inspector**. Hacé el flujo a mano una vez (search bar, dropdown, opción, Tab, JPV, botón). El Inspector muestra una línea por cada acción, por ejemplo:
+Si no tenés Chrome instalado, quitá `--channel chrome`. Eso usa el Chromium de Playwright y requiere el paso de descarga de la sección 1.
+
+Se abren dos ventanas: el navegador con la app y el **Inspector**. Hacé el flujo a mano una vez: assignee en la search bar, dropdown, opción, Tab, JPV y botón. El Inspector muestra una línea por cada acción, por ejemplo:
 
 ```python
 page.get_by_placeholder("Search").click()
@@ -56,15 +58,21 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 - `APP_URL`: la URL de la app.
 - `SEARCH_INPUT`: la search bar donde se busca el assignee.
 - `DROPDOWN`: el elemento que abre el dropdown.
-- `DROPDOWN_OPTION`: el texto de la opción a elegir.
+- `DROPDOWN_OPTION`: el texto exacto de la opción a elegir.
 - `SUBMIT_BUTTON`: el botón de asignación.
 
-Y si hace falta, ajustá las columnas del XLSX:
+Y si hace falta, ajustá las columnas del XLSX y el navegador:
 
 - `XLSX_SHEET`: `None` usa la primera hoja. Si el archivo tiene varias, poné el nombre de la hoja, por ejemplo `"Hoja1"`.
 - `XLSX_HAS_HEADER`: `True` si la primera fila es de encabezado (se saltea).
 - `COL_ASSIGNEE` y `COL_JPV`: letras de las columnas. Por defecto `A` y `B`.
 - `BROWSER_CHANNEL`: `"chrome"` o `"msedge"` usa el navegador que ya tenés instalado. `None` usa el Chromium de Playwright, que hay que descargar con `playwright install chromium`.
+
+**Checklist antes de la primera corrida:**
+1. `APP_URL`, `SEARCH_INPUT`, `DROPDOWN`, `DROPDOWN_OPTION` y `SUBMIT_BUTTON` tienen valores reales, no los de ejemplo.
+2. `DROPDOWN_OPTION` coincide con el texto que muestra la app.
+3. `BROWSER_CHANNEL` está como querés.
+4. `HEADLESS = False` mientras pruebas, para ver qué hace el script.
 
 ## 4. Preparar el XLSX
 
@@ -104,5 +112,6 @@ Al terminar:
 ## Notas
 
 - Los selectores que vienen en el script son placeholders. Hay que reemplazarlos antes de usarlo.
+- `DROPDOWN_OPTION` es fijo: el script siempre elige la misma opción. Si la opción cambia según la fila, hay que modificar el script.
 - Si una fila falla, el script sigue con la siguiente.
 - El archivo de entrada tiene que ser `.xlsx`. Otros formatos (CSV, XLS) no se aceptan.
