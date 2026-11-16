@@ -32,7 +32,7 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import FrameLocator, Page, sync_playwright
 
 # =====================================================================
 # CONFIGURACIÓN: completar con los selectores reales de la app.
@@ -52,7 +52,8 @@ SEARCH_BUTTON = "role=button[name='Search']"        # lupa (se usa si SEARCH_WIT
 SEARCH_WITH_ENTER = True                            # True: Enter confirma la búsqueda; False: click en la lupa
 
 # --- Acciones sobre el caso (dentro del iframe de Pega) ---
-PEGA_FRAME = "iframe[name='PegaGadget1Ifr']"       # iframe donde está la UI de Pega
+PEGA_FRAME_PREFIX = "PegaGadget"                    # Pega cambia el número del iframe (PegaGadget1Ifr, PegaGadget2Ifr...)
+PEGA_FRAME_TIMEOUT_MS = 15000                       # cuánto buscar el iframe con el botón Actions
 ACTIONS_MENU = "role=button[name='Actions']"        # PegaGadget Actions
 REASSIGN_OPTION = "role=menuitem[name='Reassign']"  # PegaGadget Reassign
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
@@ -142,8 +143,22 @@ class StepError(Exception):
     """Error en un paso de una fila. El mensaje incluye el nombre del paso."""
 
 
+def find_pega_frame(page: Page) -> FrameLocator:
+    """Devuelve el iframe de Pega que contiene el botón Actions.
+
+    Se busca en vez de fijar el nombre: Pega cambia el número del iframe
+    después de un error o una recarga, y el botón queda en otro iframe.
+    """
+    for _ in range(max(PEGA_FRAME_TIMEOUT_MS // STEP_PAUSE_MS, 1)):
+        for frame in page.frames:
+            if frame.name.startswith(PEGA_FRAME_PREFIX) and frame.locator(ACTIONS_MENU).count() > 0:
+                log.info("Iframe de Pega: %s", frame.name)
+                return page.frame_locator(f"iframe[name='{frame.name}']")
+        page.wait_for_timeout(STEP_PAUSE_MS)
+    raise TimeoutError("no apareció el botón Actions en ningún iframe de Pega")
+
+
 def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
-    pega = page.frame_locator(PEGA_FRAME)
     paso = "buscar JPV"
     try:
         # 1) Buscar el JPV
@@ -158,6 +173,10 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
         else:
             page.locator(SEARCH_BUTTON).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
+
+        # Iframe de Pega (se busca después de la búsqueda: el caso se abre recién ahí)
+        paso = "iframe de Pega (botón Actions)"
+        pega = find_pega_frame(page)
 
         # 2) Solo para Miscellaneous: Actions > Change Case Type > Amendment > Submit
         if case_type == CASE_TYPE_TRIGGER:
