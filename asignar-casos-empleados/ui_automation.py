@@ -301,12 +301,12 @@ def main() -> None:
                     continue
                 try:
                     process_row(page, assignee, jpv, case_type)
-                    log.info(f"{GREEN}Fila %d OK (%s | %s){RESET}", row_no, jpv, assignee)
+                    log.info(f"{GREEN}OK - JPV %s asignado a %s{RESET}", jpv, assignee)
                     results.append([row_no, assignee, jpv, "OK", ""])
                 except Exception as exc:  # noqa: BLE001
                     text = str(exc).strip()
                     msg = text.splitlines()[0] if text else type(exc).__name__
-                    log.error(f"{RED}Fila %d ERROR: %s{RESET}", row_no, msg)
+                    log.error(f"{RED}ERROR - JPV %s no se pudo asignar a %s. Motivo: %s{RESET}", jpv, assignee, msg)
                     try:
                         page.screenshot(path=f"error_fila_{row_no}.png", full_page=True)
                     except Exception:  # la página pudo quedar en mal estado
