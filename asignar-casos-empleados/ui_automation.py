@@ -40,7 +40,7 @@ from playwright.sync_api import Page, sync_playwright
 APP_URL = "https://TU-APP-INTERNA"
 
 # --- Búsqueda por JPV ---
-SEARCH_INPUT = "input[placeholder='Search']"       # search bar donde va el JPV
+SEARCH_INPUT = "role=textbox[name='Search']"       # search bar donde va el JPV
 SEARCH_BUTTON = "role=button[name='Search']"        # lupa (se usa si SEARCH_WITH_ENTER es False)
 SEARCH_WITH_ENTER = True                            # True: Enter confirma la búsqueda; False: click en la lupa
 
@@ -58,7 +58,7 @@ XLSX_HAS_HEADER = True     # True: la primera fila es encabezado y se saltea
 COL_ASSIGNEE = "A"         # columna con el assignee
 COL_JPV = "B"              # columna con el identificador JPV
 
-BROWSER_CHANNEL = "chrome"  # "chrome" o "msedge": usa el navegador ya instalado; None: Chromium de Playwright
+BROWSER_CHANNEL = "msedge"  # "chrome" o "msedge": usa el navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False        # False: ves la automatización corriendo
 AUTO_SSO_CLICKS = True  # True: el script hace click en "Login with SSO" y en "JPMorgan Chase (Default)"
 LOGIN_PAUSE = True      # True: pausa para completar usuario, contraseña y MFA antes de empezar

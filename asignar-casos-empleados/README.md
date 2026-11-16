@@ -20,7 +20,7 @@ playwright install chromium
 
 Si `playwright install chromium` falla con `ETIMEDOUT` o un error de descarga, la red corporativa está bloqueando la descarga. Dos opciones:
 
-- **Usar Chrome o Edge ya instalados (recomendado):** en `ui_automation.py` poné `BROWSER_CHANNEL = "chrome"` o `"msedge"`. No hace falta descargar nada. Para codegen, usá `--channel chrome` o `--channel msedge` (ver paso 2).
+- **Usar Chrome o Edge ya instalados (recomendado):** en `ui_automation.py` poné `BROWSER_CHANNEL = "msedge"` (o `"chrome"`). No hace falta descargar nada. Para codegen, usá `--channel chrome` o `--channel msedge` (ver paso 2).
 - **Configurar el proxy y reintentar:** en PowerShell, `$env:HTTPS_PROXY="http://PROXY:PUERTO"` y después `playwright install chromium`. La dirección del proxy la pide IT.
 
 ## 2. Sacar los selectores con codegen
@@ -44,7 +44,7 @@ Pasá esos valores a la sección `CONFIGURACIÓN` de `ui_automation.py` usando s
 
 | Codegen | En el script |
 |---|---|
-| `get_by_placeholder("Search")` | `"input[placeholder='Search']"` |
+| `get_by_role("textbox", name="Search")` | `"role=textbox[name='Search']"` |
 | `get_by_role("button", name="Actions")` | `"role=button[name='Actions']"` |
 
 Si no querés usar codegen, en el navegador: F12, clic derecho sobre el elemento, **Copy > Copy selector**.
