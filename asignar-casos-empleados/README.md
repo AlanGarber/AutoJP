@@ -98,7 +98,7 @@ La columna A es el assignee y la columna B es el JPV. El resto de las columnas n
 | Alan David Garber | JPV2026113-000000 | ... |
 | Alan David Garber | JPV2026113-000001 | ... |
 
-Un ejemplo listo está en `datos_ejemplo.xlsx`. Las filas sin assignee o sin JPV se omiten y el script lo avisa en la terminal.
+Armá tu XLSX con esa estructura. Los archivos `.xlsx` no se suben al repo. Las filas sin assignee o sin JPV se omiten y el script lo avisa en la terminal.
 
 ## 5. Ejecutar
 
@@ -108,7 +108,7 @@ Entrá a esta carpeta y corré el script desde ahí:
 cd asignar-casos-empleados
 ```
 
-Probá primero con `datos_ejemplo.xlsx` (2 filas) o con 2 o 3 filas de tu archivo. Después:
+Probá primero con un XLSX de prueba de una sola fila, con un caso que puedas revertir. Después:
 
 ```bash
 python ui_automation.py datos.xlsx

@@ -4,9 +4,8 @@ error_fila_*.png
 reporte_no_respondidos_*.csv
 reporte_no_respondidos_*.html
 
-# Archivos de datos reales (se conserva solo el ejemplo)
+# Archivos de datos (no se suben al repo)
 *.xlsx
-!asignar-casos-empleados/datos_ejemplo.xlsx
 
 # Configuración local con la URL real de la app
 config_local.py
