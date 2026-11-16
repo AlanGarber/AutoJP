@@ -46,6 +46,7 @@ XLSX_HAS_HEADER = True     # True: la primera fila es encabezado y se saltea
 COL_ASSIGNEE = "A"         # columna con el assignee
 COL_JPV = "B"              # columna con el identificador JPV
 
+BROWSER_CHANNEL = "chrome"  # "chrome" o "msedge": usa el navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False        # False: ves la automatización corriendo
 LOGIN_PAUSE = True      # True: pausa para loguearte (SSO) antes de empezar
 TYPING_DELAY_MS = 40    # tipeo humano; ayuda con UIs que reaccionan a cada tecla
@@ -133,7 +134,7 @@ def main() -> None:
 
     results = []
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=HEADLESS)
+        browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS)
         page = browser.new_page()
         page.goto(APP_URL)
 

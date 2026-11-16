@@ -18,6 +18,11 @@ pip install playwright openpyxl
 playwright install chromium
 ```
 
+Si `playwright install chromium` falla con `ETIMEDOUT` o un error de descarga, la red corporativa está bloqueando la descarga. Dos opciones:
+
+- **Usar Chrome o Edge ya instalados (recomendado):** en `ui_automation.py` dejá `BROWSER_CHANNEL = "chrome"` (o `"msedge"`). No hace falta descargar nada.
+- **Configurar el proxy y reintentar:** en PowerShell, `$env:HTTPS_PROXY="http://PROXY:PUERTO"` y después `playwright install chromium`. La dirección del proxy la pide IT.
+
 ## 2. Sacar los selectores con codegen
 
 Playwright tiene un grabador que escribe el código por vos.
@@ -59,6 +64,7 @@ Y si hace falta, ajustá las columnas del XLSX:
 - `XLSX_SHEET`: `None` usa la primera hoja. Si el archivo tiene varias, poné el nombre de la hoja, por ejemplo `"Hoja1"`.
 - `XLSX_HAS_HEADER`: `True` si la primera fila es de encabezado (se saltea).
 - `COL_ASSIGNEE` y `COL_JPV`: letras de las columnas. Por defecto `A` y `B`.
+- `BROWSER_CHANNEL`: `"chrome"` o `"msedge"` usa el navegador que ya tenés instalado. `None` usa el Chromium de Playwright, que hay que descargar con `playwright install chromium`.
 
 ## 4. Preparar el XLSX
 
