@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Asigna casos a cada empleado en una UI web a partir de un XLSX (una pasada por fila).
+Asigna casos a cada empleado en Pega a partir de un XLSX (una pasada por fila).
 
 Por cada fila:
-  1. Escribe el assignee (columna A) en la search bar y presiona Enter.
-  2. Abre el dropdown y elige una opción.
-  3. Presiona Tab, escribe el JPV (columna B) y presiona Enter.
-  4. Hace click en el botón de asignación.
+  1. Busca el JPV (columna B) en la search bar y confirma la búsqueda.
+  2. Abre Actions y elige Reassign.
+  3. Escribe el assignee (columna A) en el campo "label operator".
+  4. Hace click en Submit, Close y Save.
 
+Al inicio, el script hace los clicks de SSO (si AUTO_SSO_CLICKS es True).
+Usuario, contraseña y MFA los completás vos antes de que empiece la carga.
 Las demás columnas del archivo se ignoran.
 
 Instalación:
@@ -33,13 +35,22 @@ from playwright.sync_api import Page, sync_playwright
 # =====================================================================
 # CONFIGURACIÓN: completar con los selectores reales de la app.
 # Tip: `playwright codegen <URL>` graba los clicks y devuelve selectores.
+# Los valores de ejemplo son placeholders.
 # =====================================================================
 APP_URL = "https://TU-APP-INTERNA"
 
-SEARCH_INPUT = "input[placeholder='Search']"   # search bar
-DROPDOWN = "#dropdown-trigger"                 # elemento que abre el dropdown
-DROPDOWN_OPTION = "Opción A"                   # texto visible de la opción a elegir
-SUBMIT_BUTTON = "button:has-text('Submit')"    # botón final de cada fila
+# --- Búsqueda por JPV ---
+SEARCH_INPUT = "input[placeholder='Search']"       # search bar donde va el JPV
+SEARCH_BUTTON = "role=button[name='Search']"        # lupa (se usa si SEARCH_WITH_ENTER es False)
+SEARCH_WITH_ENTER = True                            # True: Enter confirma la búsqueda; False: click en la lupa
+
+# --- Acciones sobre el caso ---
+ACTIONS_MENU = "role=button[name='Actions']"        # PegaGadget Actions
+REASSIGN_OPTION = "role=menuitem[name='Reassign']"  # PegaGadget Reassign
+OPERATOR_INPUT = "input[aria-label='Operator']"     # campo "label operator", donde va el assignee
+SUBMIT_BUTTON = "role=button[name='Submit']"        # PegaGadget Submit
+CLOSE_BUTTON = "role=button[name='Close']"          # PegaGadget Close
+SAVE_BUTTON = "role=button[name='Save']"            # PegaGadget Save
 
 XLSX_SHEET = None          # None = primera hoja; o el nombre de la hoja, por ejemplo "Hoja1"
 XLSX_HAS_HEADER = True     # True: la primera fila es encabezado y se saltea
@@ -48,7 +59,8 @@ COL_JPV = "B"              # columna con el identificador JPV
 
 BROWSER_CHANNEL = "chrome"  # "chrome" o "msedge": usa el navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False        # False: ves la automatización corriendo
-LOGIN_PAUSE = True      # True: pausa para loguearte (SSO) antes de empezar
+AUTO_SSO_CLICKS = True  # True: el script hace click en "Login with SSO" y en "JPMorgan Chase (Default)"
+LOGIN_PAUSE = True      # True: pausa para completar usuario, contraseña y MFA antes de empezar
 TYPING_DELAY_MS = 40    # tipeo humano; ayuda con UIs que reaccionan a cada tecla
 STEP_PAUSE_MS = 300     # pausa breve entre pasos
 
@@ -93,29 +105,44 @@ def read_rows(path: Path):
         wb.close()
 
 
+def login_sso(page: Page) -> None:
+    """Clicks de SSO. Usuario, contraseña y MFA los completa la persona."""
+    page.get_by_role("link", name="Login with SSO", exact=True).click()
+    page.get_by_role("button", name="JPMorgan Chase (Default)").click()
+    page.wait_for_timeout(STEP_PAUSE_MS)
+
+
 def process_row(page: Page, assignee: str, jpv: str) -> None:
-    # 1) Search bar: limpiar, escribir el assignee y Enter
+    # 1) Buscar el JPV
     search = page.locator(SEARCH_INPUT)
     search.click()
     search.fill("")
-    search.press_sequentially(assignee, delay=TYPING_DELAY_MS)
-    search.press("Enter")
+    search.press_sequentially(jpv, delay=TYPING_DELAY_MS)
+    if SEARCH_WITH_ENTER:
+        search.press("Enter")
+    else:
+        page.locator(SEARCH_BUTTON).click()
     page.wait_for_timeout(STEP_PAUSE_MS)
 
-    # 2) Dropdown: abrir y elegir la opción
-    page.locator(DROPDOWN).click()
-    page.get_by_text(DROPDOWN_OPTION, exact=True).click()
+    # 2) Actions > Reassign
+    page.locator(ACTIONS_MENU).click()
+    page.locator(REASSIGN_OPTION).click()
     page.wait_for_timeout(STEP_PAUSE_MS)
 
-    # 3) Tab al siguiente campo: reemplazar por el JPV y Enter
-    page.keyboard.press("Tab")
-    page.keyboard.press("ControlOrMeta+A")
-    page.keyboard.type(jpv, delay=TYPING_DELAY_MS)
-    page.keyboard.press("Enter")
+    # 3) Escribir el assignee en "label operator"
+    operator = page.locator(OPERATOR_INPUT)
+    operator.click()
+    operator.fill("")
+    operator.press_sequentially(assignee, delay=TYPING_DELAY_MS)
+    # Si la app muestra sugerencias y hay que elegir una, agregar el click acá.
     page.wait_for_timeout(STEP_PAUSE_MS)
 
-    # 4) Botón de asignación
+    # 4) Submit, Close y Save
     page.locator(SUBMIT_BUTTON).click()
+    page.wait_for_timeout(STEP_PAUSE_MS)
+    page.locator(CLOSE_BUTTON).click()
+    page.wait_for_timeout(STEP_PAUSE_MS)
+    page.locator(SAVE_BUTTON).click()
     page.wait_for_timeout(STEP_PAUSE_MS)
 
 
@@ -138,13 +165,16 @@ def main() -> None:
         page = browser.new_page()
         page.goto(APP_URL)
 
+        if AUTO_SSO_CLICKS:
+            login_sso(page)
+
         if LOGIN_PAUSE:
-            input("Logueate en la app y presioná Enter para empezar... ")
+            input("Completá usuario, contraseña y MFA en el navegador y presioná Enter para empezar... ")
 
         for row_no, assignee, jpv in rows:
             try:
                 process_row(page, assignee, jpv)
-                log.info("Fila %d OK (%s | %s)", row_no, assignee, jpv)
+                log.info("Fila %d OK (%s | %s)", row_no, jpv, assignee)
                 results.append([row_no, assignee, jpv, "OK", ""])
             except Exception as exc:  # noqa: BLE001
                 text = str(exc).strip()
@@ -152,7 +182,7 @@ def main() -> None:
                 log.error("Fila %d ERROR: %s", row_no, msg)
                 try:
                     page.screenshot(path=f"error_fila_{row_no}.png", full_page=True)
-                    page.keyboard.press("Escape")  # cerrar dropdowns colgados
+                    page.keyboard.press("Escape")  # cerrar menús o dialogs colgados
                 except Exception:  # la página pudo quedar en mal estado
                     pass
                 results.append([row_no, assignee, jpv, "ERROR", msg])

@@ -1,13 +1,13 @@
 # Asignar casos a cada empleado según XLSX
 
-Asigna casos a empleados en una UI web a partir de un archivo XLSX. Por cada fila:
+Reasigna casos a empleados en Pega a partir de un archivo XLSX. Por cada fila:
 
-1. Escribe el assignee (columna A) en la search bar y presiona Enter.
-2. Abre el dropdown y elige una opción.
-3. Presiona Tab, escribe el JPV (columna B) y presiona Enter.
-4. Hace click en el botón de asignación.
+1. Busca el JPV (columna B) en la search bar y confirma la búsqueda.
+2. Abre **Actions** y elige **Reassign**.
+3. Escribe el assignee (columna A) en el campo **label operator**.
+4. Hace click en **Submit**, **Close** y **Save**.
 
-Las demás columnas del archivo se ignoran. Todo está en un solo archivo: `ui_automation.py`.
+Al inicio, el script hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). Usuario, contraseña y MFA los completás vos. Las demás columnas del archivo se ignoran. Todo está en un solo archivo: `ui_automation.py`.
 
 ## 1. Instalación
 
@@ -20,7 +20,7 @@ playwright install chromium
 
 Si `playwright install chromium` falla con `ETIMEDOUT` o un error de descarga, la red corporativa está bloqueando la descarga. Dos opciones:
 
-- **Usar Chrome o Edge ya instalados (recomendado):** en `ui_automation.py` dejá `BROWSER_CHANNEL = "chrome"` (o `"msedge"`). No hace falta descargar nada. Para codegen, usá la opción `--channel chrome` (ver paso 2).
+- **Usar Chrome o Edge ya instalados (recomendado):** en `ui_automation.py` poné `BROWSER_CHANNEL = "chrome"` o `"msedge"`. No hace falta descargar nada. Para codegen, usá `--channel chrome` o `--channel msedge` (ver paso 2).
 - **Configurar el proxy y reintentar:** en PowerShell, `$env:HTTPS_PROXY="http://PROXY:PUERTO"` y después `playwright install chromium`. La dirección del proxy la pide IT.
 
 ## 2. Sacar los selectores con codegen
@@ -28,16 +28,16 @@ Si `playwright install chromium` falla con `ETIMEDOUT` o un error de descarga, l
 Playwright tiene un grabador que escribe el código por vos.
 
 ```bash
-playwright codegen --channel chrome https://TU-APP-INTERNA
+playwright codegen --channel msedge https://TU-APP-INTERNA
 ```
 
-Si no tenés Chrome instalado, quitá `--channel chrome`. Eso usa el Chromium de Playwright y requiere el paso de descarga de la sección 1.
+Si no usás Edge, cambiá `msedge` por `chrome`. Si no tenés ninguno de los dos, quitá `--channel` y usá el Chromium de Playwright, que requiere el paso de descarga de la sección 1.
 
-Se abren dos ventanas: el navegador con la app y el **Inspector**. Hacé el flujo a mano una vez: assignee en la search bar, dropdown, opción, Tab, JPV y botón. El Inspector muestra una línea por cada acción, por ejemplo:
+Se abren dos ventanas: el navegador con la app y el **Inspector**. Hacé el flujo a mano una vez: login, búsqueda del JPV, Actions, Reassign, assignee, Submit, Close y Save. El Inspector muestra una línea por cada acción, por ejemplo:
 
 ```python
-page.get_by_placeholder("Search").click()
-page.get_by_role("button", name="Submit").click()
+page.get_by_role("button", name="Actions").click()
+page.get_by_role("menuitem", name="Reassign").click()
 ```
 
 Pasá esos valores a la sección `CONFIGURACIÓN` de `ui_automation.py` usando strings:
@@ -45,9 +45,9 @@ Pasá esos valores a la sección `CONFIGURACIÓN` de `ui_automation.py` usando s
 | Codegen | En el script |
 |---|---|
 | `get_by_placeholder("Search")` | `"input[placeholder='Search']"` |
-| `get_by_role("button", name="Submit")` | `"role=button[name='Submit']"` |
+| `get_by_role("button", name="Actions")` | `"role=button[name='Actions']"` |
 
-Si no querés usar codegen, en Chrome: F12, clic derecho sobre el elemento, **Copy > Copy selector**.
+Si no querés usar codegen, en el navegador: F12, clic derecho sobre el elemento, **Copy > Copy selector**.
 
 Si la app es interna, necesitás estar en la red o en la VPN.
 
@@ -55,22 +55,29 @@ Si la app es interna, necesitás estar en la red o en la VPN.
 
 Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 
+**Búsqueda por JPV**
+- `SEARCH_INPUT`: la search bar donde va el JPV.
+- `SEARCH_BUTTON`: la lupa. Solo se usa si `SEARCH_WITH_ENTER` es `False`.
+- `SEARCH_WITH_ENTER`: `True` confirma la búsqueda con Enter. `False` hace click en la lupa.
+
+**Acciones sobre el caso**
+- `ACTIONS_MENU`: el menú **Actions**.
+- `REASSIGN_OPTION`: la opción **Reassign** dentro del menú.
+- `OPERATOR_INPUT`: el campo **label operator**, donde va el assignee.
+- `SUBMIT_BUTTON`, `CLOSE_BUTTON` y `SAVE_BUTTON`: los botones de cada paso.
+
+**Archivo y navegador**
 - `APP_URL`: la URL de la app.
-- `SEARCH_INPUT`: la search bar donde se busca el assignee.
-- `DROPDOWN`: el elemento que abre el dropdown.
-- `DROPDOWN_OPTION`: el texto exacto de la opción a elegir.
-- `SUBMIT_BUTTON`: el botón de asignación.
-
-Y si hace falta, ajustá las columnas del XLSX y el navegador:
-
-- `XLSX_SHEET`: `None` usa la primera hoja. Si el archivo tiene varias, poné el nombre de la hoja, por ejemplo `"Hoja1"`.
+- `AUTO_SSO_CLICKS`: `True` hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). `False` si preferís hacerlos a mano.
+- `LOGIN_PAUSE`: `True` pausa después del login para que completes usuario, contraseña y MFA.
+- `XLSX_SHEET`: `None` usa la primera hoja. Si el archivo tiene varias, poné el nombre, por ejemplo `"Hoja1"`.
 - `XLSX_HAS_HEADER`: `True` si la primera fila es de encabezado (se saltea).
 - `COL_ASSIGNEE` y `COL_JPV`: letras de las columnas. Por defecto `A` y `B`.
-- `BROWSER_CHANNEL`: `"chrome"` o `"msedge"` usa el navegador que ya tenés instalado. `None` usa el Chromium de Playwright, que hay que descargar con `playwright install chromium`.
+- `BROWSER_CHANNEL`: `"chrome"` o `"msedge"` usa el navegador que ya tenés instalado. `None` usa el Chromium de Playwright.
 
 **Checklist antes de la primera corrida:**
-1. `APP_URL`, `SEARCH_INPUT`, `DROPDOWN`, `DROPDOWN_OPTION` y `SUBMIT_BUTTON` tienen valores reales, no los de ejemplo.
-2. `DROPDOWN_OPTION` coincide con el texto que muestra la app.
+1. Todos los selectores tienen valores reales, no los de ejemplo.
+2. `SEARCH_WITH_ENTER` coincide con cómo se confirma la búsqueda en la app.
 3. `BROWSER_CHANNEL` está como querés.
 4. `HEADLESS = False` mientras pruebas, para ver qué hace el script.
 
@@ -99,8 +106,8 @@ Probá primero con `datos_ejemplo.xlsx` (2 filas) o con 2 o 3 filas de tu archiv
 python ui_automation.py datos.xlsx
 ```
 
-1. Se abre el navegador en la app.
-2. Logueate (SSO si corresponde).
+1. Se abre el navegador en la app y el script hace los clicks de SSO.
+2. Completá usuario, contraseña y MFA en el navegador.
 3. Volvé a la terminal y presioná Enter.
 4. El script procesa cada fila.
 
@@ -109,9 +116,11 @@ Al terminar:
 - `resultados.csv`: el estado (`OK` o `ERROR`) de cada fila.
 - `error_fila_N.png`: captura de la pantalla donde falló la fila N del XLSX.
 
+`OK` indica que los pasos corrieron sin error. Confirmá en la app que la reasignación quedó guardada.
+
 ## Notas
 
 - Los selectores que vienen en el script son placeholders. Hay que reemplazarlos antes de usarlo.
-- `DROPDOWN_OPTION` es fijo: el script siempre elige la misma opción. Si la opción cambia según la fila, hay que modificar el script.
+- Si la app muestra sugerencias al escribir en el campo del assignee, hay que agregar el click en la opción correcta en `process_row`.
 - Si una fila falla, el script sigue con la siguiente.
 - El archivo de entrada tiene que ser `.xlsx`. Otros formatos (CSV, XLS) no se aceptan.
