@@ -5,7 +5,7 @@ Reasigna casos a empleados en Pega a partir de un archivo XLSX. Por cada fila:
 1. Busca el JPV (columna B) en la search bar y confirma la búsqueda.
 2. Abre **Actions** y elige **Reassign**.
 3. Elige el assignee (columna A) en el dropdown **operator**.
-4. Hace click en **Submit**, **Close** y **Save**.
+4. Hace click en **Submit** y **Close**. No hace falta **Save**: al reasignar no hay cambios que guardar.
 
 Al inicio, el script hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). Usuario, contraseña y MFA los completás vos. Solo se procesan las filas de los equipos permitidos (columna C); el resto de las columnas se ignoran. Todo está en un solo archivo: `ui_automation.py`.
 
@@ -33,7 +33,7 @@ playwright codegen --channel msedge https://TU-APP-INTERNA
 
 Si no usás Edge, cambiá `msedge` por `chrome`. Si no tenés ninguno de los dos, quitá `--channel` y usá el Chromium de Playwright, que requiere el paso de descarga de la sección 1.
 
-Se abren dos ventanas: el navegador con la app y el **Inspector**. Hacé el flujo a mano una vez: login, búsqueda del JPV, Actions, Reassign, assignee, Submit, Close y Save. El Inspector muestra una línea por cada acción, por ejemplo:
+Se abren dos ventanas: el navegador con la app y el **Inspector**. Hacé el flujo a mano una vez: login, búsqueda del JPV, Actions, Reassign, assignee, Submit y Close. El Inspector muestra una línea por cada acción, por ejemplo:
 
 ```python
 page.get_by_role("button", name="Actions").click()
@@ -64,7 +64,7 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 - `ACTIONS_MENU`: el menú **Actions**.
 - `REASSIGN_OPTION`: la opción **Reassign** dentro del menú.
 - `OPERATOR_LABEL`: el label del dropdown **operator**, donde se elige el assignee. Por defecto `"operator"`.
-- `SUBMIT_BUTTON`, `CLOSE_BUTTON` y `SAVE_BUTTON`: los botones de cada paso.
+- `SUBMIT_BUTTON` y `CLOSE_BUTTON`: los botones de cada paso.
 
 **Archivo y navegador**
 - `APP_URL`: la URL de la app. No la pongas en el script: usá `config_local.py` (ver abajo).

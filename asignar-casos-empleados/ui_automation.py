@@ -6,7 +6,7 @@ Por cada fila:
   1. Busca el JPV (columna B) en la search bar y confirma la búsqueda.
   2. Abre Actions y elige Reassign.
   3. Elige el assignee (columna A) en el dropdown "operator".
-  4. Hace click en Submit, Close y Save.
+  4. Hace click en Submit y Close. No hace falta Save: al reasignar no hay cambios que guardar.
 
 Al inicio, el script hace los clicks de SSO (si AUTO_SSO_CLICKS es True).
 Usuario, contraseña y MFA los completás vos antes de que empiece la carga.
@@ -56,7 +56,6 @@ REASSIGN_OPTION = "role=menuitem[name='Reassign']"  # PegaGadget Reassign
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
 SUBMIT_BUTTON = "role=button[name='Submit']"        # PegaGadget Submit
 CLOSE_BUTTON = "role=button[name='Close']"          # PegaGadget Close
-SAVE_BUTTON = "role=button[name='Save']"            # PegaGadget Save
 
 XLSX_SHEET = None          # None = primera hoja; o el nombre de la hoja, por ejemplo "Hoja1"
 XLSX_HAS_HEADER = True     # True: la primera fila es encabezado y se saltea
@@ -163,15 +162,12 @@ def process_row(page: Page, assignee: str, jpv: str) -> None:
         pega.get_by_label(OPERATOR_LABEL).select_option(label=assignee)
         page.wait_for_timeout(STEP_PAUSE_MS)
 
-        # 4) Submit, Close y Save
+        # 4) Submit y Close (sin Save: la reasignación no deja nada por guardar)
         paso = "Submit"
         pega.locator(SUBMIT_BUTTON).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
         paso = "Close"
         pega.locator(CLOSE_BUTTON).click()
-        page.wait_for_timeout(STEP_PAUSE_MS)
-        paso = "Save"
-        pega.locator(SAVE_BUTTON).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
     except Exception as exc:
         raise StepError(f"paso '{paso}': {exc}") from exc
