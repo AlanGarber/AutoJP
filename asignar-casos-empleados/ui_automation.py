@@ -62,7 +62,6 @@ BROWSER_CHANNEL = "msedge"  # "chrome" o "msedge": usa el navegador ya instalado
 HEADLESS = False        # False: ves la automatización corriendo
 AUTO_SSO_CLICKS = True  # True: el script hace click en "Login with SSO" y en "JPMorgan Chase (Default)"
 LOGIN_PAUSE = True      # True: pausa para completar usuario, contraseña y MFA antes de empezar
-TYPING_DELAY_MS = 40    # tipeo humano; ayuda con UIs que reaccionan a cada tecla
 STEP_PAUSE_MS = 300     # pausa breve entre pasos
 RECOVER_TIMEOUT_MS = 15000  # cuánto esperar la search bar al recuperarse de un error
 
@@ -125,8 +124,10 @@ def process_row(page: Page, assignee: str, jpv: str) -> None:
         # 1) Buscar el JPV
         search = page.locator(SEARCH_INPUT)
         search.click()
-        search.fill("")
-        search.press_sequentially(jpv, delay=TYPING_DELAY_MS)
+        search.fill(jpv)
+        escrito = search.input_value()
+        if escrito != jpv:
+            raise ValueError(f"la search bar tiene '{escrito}' en vez de '{jpv}'")
         if SEARCH_WITH_ENTER:
             search.press("Enter")
         else:
