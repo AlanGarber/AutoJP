@@ -68,7 +68,7 @@ HEADLESS = False        # False: ves la automatización corriendo
 AUTO_SSO_CLICKS = True  # True: el script hace click en "Login with SSO" y en "JPMorgan Chase (Default)"
 LOGIN_PAUSE = True      # True: pausa para completar usuario, contraseña y MFA antes de empezar
 STEP_PAUSE_MS = 300     # pausa breve entre pasos
-PAUSE_BETWEEN_ROWS_MS = 3000  # pausa mínima entre una fila y la siguiente
+PAUSE_BETWEEN_ROWS_MS = 1500  # pausa mínima entre una fila y la siguiente
 RECOVER_TIMEOUT_MS = 15000  # cuánto esperar la search bar al recuperarse de un error
 
 logging.basicConfig(
