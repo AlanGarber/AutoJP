@@ -64,6 +64,7 @@ AUTO_SSO_CLICKS = True  # True: el script hace click en "Login with SSO" y en "J
 LOGIN_PAUSE = True      # True: pausa para completar usuario, contraseña y MFA antes de empezar
 TYPING_DELAY_MS = 40    # tipeo humano; ayuda con UIs que reaccionan a cada tecla
 STEP_PAUSE_MS = 300     # pausa breve entre pasos
+RECOVER_TIMEOUT_MS = 15000  # cuánto esperar la search bar al recuperarse de un error
 
 logging.basicConfig(
     level=logging.INFO,
@@ -113,36 +114,61 @@ def login_sso(page: Page) -> None:
     page.wait_for_timeout(STEP_PAUSE_MS)
 
 
+class StepError(Exception):
+    """Error en un paso de una fila. El mensaje incluye el nombre del paso."""
+
+
 def process_row(page: Page, assignee: str, jpv: str) -> None:
-    # 1) Buscar el JPV
-    search = page.locator(SEARCH_INPUT)
-    search.click()
-    search.fill("")
-    search.press_sequentially(jpv, delay=TYPING_DELAY_MS)
-    if SEARCH_WITH_ENTER:
-        search.press("Enter")
-    else:
-        page.locator(SEARCH_BUTTON).click()
-    page.wait_for_timeout(STEP_PAUSE_MS)
-
     pega = page.frame_locator(PEGA_FRAME)
+    paso = "buscar JPV"
+    try:
+        # 1) Buscar el JPV
+        search = page.locator(SEARCH_INPUT)
+        search.click()
+        search.fill("")
+        search.press_sequentially(jpv, delay=TYPING_DELAY_MS)
+        if SEARCH_WITH_ENTER:
+            search.press("Enter")
+        else:
+            page.locator(SEARCH_BUTTON).click()
+        page.wait_for_timeout(STEP_PAUSE_MS)
 
-    # 2) Actions > Reassign
-    pega.locator(ACTIONS_MENU).click()
-    pega.locator(REASSIGN_OPTION).click()
-    page.wait_for_timeout(STEP_PAUSE_MS)
+        # 2) Actions > Reassign
+        paso = "Actions"
+        pega.locator(ACTIONS_MENU).click()
+        paso = "Reassign"
+        pega.locator(REASSIGN_OPTION).click()
+        page.wait_for_timeout(STEP_PAUSE_MS)
 
-    # 3) Elegir el assignee en el dropdown "operator" (por texto visible de la opción)
-    pega.get_by_label(OPERATOR_LABEL).select_option(label=assignee)
-    page.wait_for_timeout(STEP_PAUSE_MS)
+        # 3) Elegir el assignee en el dropdown "operator" (por texto visible de la opción)
+        paso = "operator (assignee)"
+        pega.get_by_label(OPERATOR_LABEL).select_option(label=assignee)
+        page.wait_for_timeout(STEP_PAUSE_MS)
 
-    # 4) Submit, Close y Save
-    pega.locator(SUBMIT_BUTTON).click()
-    page.wait_for_timeout(STEP_PAUSE_MS)
-    pega.locator(CLOSE_BUTTON).click()
-    page.wait_for_timeout(STEP_PAUSE_MS)
-    pega.locator(SAVE_BUTTON).click()
-    page.wait_for_timeout(STEP_PAUSE_MS)
+        # 4) Submit, Close y Save
+        paso = "Submit"
+        pega.locator(SUBMIT_BUTTON).click()
+        page.wait_for_timeout(STEP_PAUSE_MS)
+        paso = "Close"
+        pega.locator(CLOSE_BUTTON).click()
+        page.wait_for_timeout(STEP_PAUSE_MS)
+        paso = "Save"
+        pega.locator(SAVE_BUTTON).click()
+        page.wait_for_timeout(STEP_PAUSE_MS)
+    except Exception as exc:
+        raise StepError(f"paso '{paso}': {exc}") from exc
+
+
+def recover(page: Page) -> bool:
+    """Después de un error, vuelve a la search bar. Devuelve False si no lo logra."""
+    try:
+        page.keyboard.press("Escape")
+        page.keyboard.press("Escape")
+        page.reload()
+        page.locator(SEARCH_INPUT).wait_for(state="visible", timeout=RECOVER_TIMEOUT_MS)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def main() -> None:
@@ -170,7 +196,11 @@ def main() -> None:
         if LOGIN_PAUSE:
             input("Completá usuario, contraseña y MFA en el navegador y presioná Enter para empezar... ")
 
+        detenido = False
         for row_no, assignee, jpv in rows:
+            if detenido:
+                results.append([row_no, assignee, jpv, "NO PROCESADA", "corrida detenida por un error anterior"])
+                continue
             try:
                 process_row(page, assignee, jpv)
                 log.info("Fila %d OK (%s | %s)", row_no, jpv, assignee)
@@ -181,10 +211,14 @@ def main() -> None:
                 log.error("Fila %d ERROR: %s", row_no, msg)
                 try:
                     page.screenshot(path=f"error_fila_{row_no}.png", full_page=True)
-                    page.keyboard.press("Escape")  # cerrar menús o dialogs colgados
                 except Exception:  # la página pudo quedar en mal estado
                     pass
                 results.append([row_no, assignee, jpv, "ERROR", msg])
+                if recover(page):
+                    log.info("Volvió a la búsqueda; sigue con la siguiente fila.")
+                else:
+                    log.error("No se pudo volver a la búsqueda. Se detiene la corrida.")
+                    detenido = True
         browser.close()
 
     out = Path("resultados.csv")

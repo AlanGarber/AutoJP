@@ -123,5 +123,7 @@ Al terminar:
 
 - Los selectores que vienen en el script son placeholders. Hay que reemplazarlos antes de usarlo.
 - Si un assignee de la columna A no existe en el dropdown **operator**, esa fila queda en `ERROR` y el script sigue con la siguiente.
-- Si una fila falla, el script sigue con la siguiente.
+- Si una fila falla, el script guarda una captura, recarga la página y vuelve a la search bar. Si la recuperación funciona, sigue con la siguiente fila.
+- Si no logra volver a la search bar, se detiene y marca las filas restantes como `NO PROCESADA` en `resultados.csv`. Revisá la pantalla antes de volver a correrlo.
+- El mensaje de error dice en qué paso falló, por ejemplo `paso 'Actions'`.
 - El archivo de entrada tiene que ser `.xlsx`. Otros formatos (CSV, XLS) no se aceptan.
