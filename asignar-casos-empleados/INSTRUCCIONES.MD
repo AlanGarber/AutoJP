@@ -1,13 +1,13 @@
 # Cómo usar el script de asignación de casos
 
-Este script reasigna los casos de Pega según un archivo de Excel (la distribución del día). Lo hace solo, fila por fila. Vos tenés que iniciar sesión y estar atento a la terminal.
+Este script reasigna los casos de PRPC según un archivo de Excel (la distribución del día). Lo hace solo, fila por fila. Vos tenés que iniciar sesión y estar atento a la terminal.
 
 ## Paso 0: Bajar el repositorio (solo la primera vez)
 
 Necesitás acceso al repositorio `AlanGarber/AutoJP` en GitHub. Si no lo tenés, pedile acceso a Alan. Necesitás tener Git instalado.
 
-1. Buscá `cmd` en el menú Inicio y abrilo.
-2. Copiá y pegá estas dos líneas, una por una, apretando Enter después de cada una:
+1. Buscá `devshell` en el menú Inicio y abrilo.
+2. Antes de copiar, cambiá `SID` por tu usuario de Windows. Después copiá y pegá estas dos líneas, una por una, apretando Enter después de cada una:
 
 ```
 cd "C:\Users\SID\OneDrive - JPMorgan Chase\Desktop"
@@ -21,7 +21,7 @@ Se crea la carpeta `AutoJP` en tu Escritorio.
 **Después, una sola vez:**
 
 1. Dentro de `AutoJP\asignar-casos-empleados`, copiá el archivo `config_local.example.py` y renombrá la copia a `config_local.py`.
-2. Abrí `config_local.py` con el Bloc de notas y reemplazá la URL por la que te pase Alan.
+2. Abrí `config_local.py` con el Bloc de notas y reemplazá la URL por la de PRPC.
 3. En la terminal, instalá las librerías con esta línea y apretá Enter:
 
 ```
@@ -50,7 +50,7 @@ Arrastrá el Excel a la carpeta `asignar-casos-empleados`, la misma donde está 
 
 ## Paso 3: Abrir la terminal en la carpeta del script
 
-Abrí la terminal (`cmd`) y pegá esta línea. Después apretá Enter:
+Abrí la terminal (`devshell`). Antes de copiar la línea, cambiá `SID` por tu usuario de Windows. Después pegala y apretá Enter:
 
 ```
 cd "C:\Users\SID\OneDrive - JPMorgan Chase\Desktop\AutoJP\asignar-casos-empleados"
@@ -80,30 +80,17 @@ Copiá el comando completo, pegalo en la terminal y apretá Enter.
 
 - No toques el mouse ni el teclado mientras corre. El script trabaja solo.
 - Procesa una fila por vez. Las filas de equipos que no sean AUTOCV ni FX ChaseTr se saltean solas.
-- Al terminar, la terminal muestra el resumen.
-
-## Paso 7: Revisar los resultados
-
-En la carpeta `asignar-casos-empleados` quedan dos tipos de archivos:
-
-- `resultados.csv`: una fila por cada caso, con el estado. Abrilo con Excel.
-  - `OK`: el caso se reasignó.
-  - `ERROR`: no se pudo reasignar. La columna de detalle dice en qué paso falló.
-  - `OMITIDA`: el equipo no era AUTOCV ni FX ChaseTr.
-  - `NO PROCESADA`: la corrida se detuvo antes de llegar a esa fila.
-- `error_fila_N.png`: captura de pantalla de la fila que falló (N es el número de fila del Excel).
-
-Antes de dar la tarea por terminada, verificá en Pega los casos que quedaron como `OK`.
+- Mirá la terminal mientras corre. Las líneas en verde son casos reasignados bien. Si aparece una línea en rojo, avisale a Alan.
 
 ---
 
 ## Si algo sale mal
 
-- **Una fila dio ERROR:** el script sigue con la siguiente. Anotá los casos con error y revisalos a mano.
-- **La terminal dice "no se pudo volver a la búsqueda":** la corrida se detuvo. Cerrá la terminal, revisá la pantalla de Pega y volvé a correr el script. Antes, borrá del Excel las filas que ya dieron `OK`, para no repetirlas.
-- **Querés cortar la corrida:** apretá Ctrl+C en la terminal. El archivo `resultados.csv` se guarda igual con lo procesado hasta ese momento.
+- **La terminal muestra un error:** avisale a Alan con el texto que dice la terminal. No vuelvas a correr el script hasta que te responda.
+- **La terminal dice "no se pudo volver a la búsqueda":** la corrida se detuvo. Cerrá la terminal, avisale a Alan y no corras el script de nuevo hasta que te diga cómo seguir.
+- **Querés cortar la corrida:** apretá Ctrl+C en la terminal y avisale a Alan.
 
 ## Antes de empezar
 
 - Probá primero con un Excel de una sola fila, con un caso que puedas revertir.
-- No compartas el Excel ni el `resultados.csv` en chats o correos fuera del equipo, porque tienen números de caso.
+- No compartas el Excel en chats o correos fuera del equipo, porque tiene números de caso.

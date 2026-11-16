@@ -27,6 +27,7 @@ Genera resultados.csv con el estado de cada fila y una captura
 
 import csv
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -87,6 +88,13 @@ LOGIN_PAUSE = True      # True: pausa para completar usuario, contraseña y MFA 
 STEP_PAUSE_MS = 300     # pausa breve entre pasos
 PAUSE_BETWEEN_ROWS_MS = 1500  # pausa mínima entre una fila y la siguiente
 RECOVER_TIMEOUT_MS = 15000  # cuánto esperar la search bar al recuperarse de un error
+
+# Colores para la terminal: verde = OK, rojo = error
+RED = "\033[91m"
+GREEN = "\033[92m"
+RESET = "\033[0m"
+if sys.platform == "win32":
+    os.system("")  # activa los colores ANSI en la terminal de Windows
 
 logging.basicConfig(
     level=logging.INFO,
@@ -293,12 +301,12 @@ def main() -> None:
                     continue
                 try:
                     process_row(page, assignee, jpv, case_type)
-                    log.info("Fila %d OK (%s | %s)", row_no, jpv, assignee)
+                    log.info(f"{GREEN}Fila %d OK (%s | %s){RESET}", row_no, jpv, assignee)
                     results.append([row_no, assignee, jpv, "OK", ""])
                 except Exception as exc:  # noqa: BLE001
                     text = str(exc).strip()
                     msg = text.splitlines()[0] if text else type(exc).__name__
-                    log.error("Fila %d ERROR: %s", row_no, msg)
+                    log.error(f"{RED}Fila %d ERROR: %s{RESET}", row_no, msg)
                     try:
                         page.screenshot(path=f"error_fila_{row_no}.png", full_page=True)
                     except Exception:  # la página pudo quedar en mal estado
@@ -307,7 +315,7 @@ def main() -> None:
                     if recover(page):
                         log.info("Volvió a la búsqueda; sigue con la siguiente fila.")
                     else:
-                        log.error("No se pudo volver a la búsqueda. Se detiene la corrida.")
+                        log.error(f"{RED}No se pudo volver a la búsqueda. Se detiene la corrida.{RESET}")
                         detenido = True
                 if not detenido:
                     page.wait_for_timeout(PAUSE_BETWEEN_ROWS_MS)
