@@ -189,6 +189,18 @@ def recover(page: Page) -> bool:
         return False
 
 
+def guardar_resultados(results: list) -> None:
+    """Escribe resultados.csv. Se llama también si la corrida se corta a mitad."""
+    out = Path("resultados.csv")
+    with out.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["fila", "assignee", "jpv", "estado", "detalle"])
+        writer.writerows(results)
+
+    ok = sum(r[3] == "OK" for r in results)
+    log.info("Resultados: %d OK, %d con error u omitidas. Detalle en %s", ok, len(results) - ok, out.resolve())
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         sys.exit("Uso: python ui_automation.py archivo.xlsx")
@@ -203,55 +215,49 @@ def main() -> None:
         return
 
     results = []
-    with sync_playwright() as p:
-        browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS)
-        page = browser.new_page()
-        page.goto(APP_URL)
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS)
+            page = browser.new_page()
+            page.goto(APP_URL)
 
-        if AUTO_SSO_CLICKS:
-            login_sso(page)
+            if AUTO_SSO_CLICKS:
+                login_sso(page)
 
-        if LOGIN_PAUSE:
-            input("Completá usuario, contraseña y MFA en el navegador y presioná Enter para empezar... ")
+            if LOGIN_PAUSE:
+                input("Completá usuario, contraseña y MFA en el navegador y presioná Enter para empezar... ")
 
-        detenido = False
-        for row_no, assignee, jpv, team in rows:
-            if detenido:
-                results.append([row_no, assignee, jpv, "NO PROCESADA", "corrida detenida por un error anterior"])
-                continue
-            if team not in TEAMS_ALLOWED:
-                results.append([row_no, assignee, jpv, "OMITIDA", f"equipo '{team}' fuera de TEAMS_ALLOWED"])
-                continue
-            try:
-                process_row(page, assignee, jpv)
-                log.info("Fila %d OK (%s | %s)", row_no, jpv, assignee)
-                results.append([row_no, assignee, jpv, "OK", ""])
-            except Exception as exc:  # noqa: BLE001
-                text = str(exc).strip()
-                msg = text.splitlines()[0] if text else type(exc).__name__
-                log.error("Fila %d ERROR: %s", row_no, msg)
+            detenido = False
+            for row_no, assignee, jpv, team in rows:
+                if detenido:
+                    results.append([row_no, assignee, jpv, "NO PROCESADA", "corrida detenida por un error anterior"])
+                    continue
+                if team not in TEAMS_ALLOWED:
+                    results.append([row_no, assignee, jpv, "OMITIDA", f"equipo '{team}' fuera de TEAMS_ALLOWED"])
+                    continue
                 try:
-                    page.screenshot(path=f"error_fila_{row_no}.png", full_page=True)
-                except Exception:  # la página pudo quedar en mal estado
-                    pass
-                results.append([row_no, assignee, jpv, "ERROR", msg])
-                if recover(page):
-                    log.info("Volvió a la búsqueda; sigue con la siguiente fila.")
-                else:
-                    log.error("No se pudo volver a la búsqueda. Se detiene la corrida.")
-                    detenido = True
-            if not detenido:
-                page.wait_for_timeout(PAUSE_BETWEEN_ROWS_MS)
-        browser.close()
-
-    out = Path("resultados.csv")
-    with out.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["fila", "assignee", "jpv", "estado", "detalle"])
-        writer.writerows(results)
-
-    ok = sum(r[3] == "OK" for r in results)
-    log.info("Terminado: %d OK, %d con error. Detalle en %s", ok, len(results) - ok, out.resolve())
+                    process_row(page, assignee, jpv)
+                    log.info("Fila %d OK (%s | %s)", row_no, jpv, assignee)
+                    results.append([row_no, assignee, jpv, "OK", ""])
+                except Exception as exc:  # noqa: BLE001
+                    text = str(exc).strip()
+                    msg = text.splitlines()[0] if text else type(exc).__name__
+                    log.error("Fila %d ERROR: %s", row_no, msg)
+                    try:
+                        page.screenshot(path=f"error_fila_{row_no}.png", full_page=True)
+                    except Exception:  # la página pudo quedar en mal estado
+                        pass
+                    results.append([row_no, assignee, jpv, "ERROR", msg])
+                    if recover(page):
+                        log.info("Volvió a la búsqueda; sigue con la siguiente fila.")
+                    else:
+                        log.error("No se pudo volver a la búsqueda. Se detiene la corrida.")
+                        detenido = True
+                if not detenido:
+                    page.wait_for_timeout(PAUSE_BETWEEN_ROWS_MS)
+            browser.close()
+    finally:
+        guardar_resultados(results)
 
 
 if __name__ == "__main__":
