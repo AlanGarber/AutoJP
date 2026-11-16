@@ -4,7 +4,7 @@ Reasigna casos a empleados en Pega a partir de un archivo XLSX. Por cada fila:
 
 1. Busca el JPV (columna B) en la search bar y confirma la búsqueda.
 2. Abre **Actions** y elige **Reassign**.
-3. Escribe el assignee (columna A) en el campo **label operator**.
+3. Elige el assignee (columna A) en el dropdown **operator**.
 4. Hace click en **Submit**, **Close** y **Save**.
 
 Al inicio, el script hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). Usuario, contraseña y MFA los completás vos. Las demás columnas del archivo se ignoran. Todo está en un solo archivo: `ui_automation.py`.
@@ -63,7 +63,7 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 **Acciones sobre el caso**
 - `ACTIONS_MENU`: el menú **Actions**.
 - `REASSIGN_OPTION`: la opción **Reassign** dentro del menú.
-- `OPERATOR_INPUT`: el campo **label operator**, donde va el assignee.
+- `OPERATOR_LABEL`: el label del dropdown **operator**, donde se elige el assignee. Por defecto `"operator"`.
 - `SUBMIT_BUTTON`, `CLOSE_BUTTON` y `SAVE_BUTTON`: los botones de cada paso.
 
 **Archivo y navegador**
@@ -78,8 +78,9 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 **Checklist antes de la primera corrida:**
 1. Todos los selectores tienen valores reales, no los de ejemplo.
 2. `SEARCH_WITH_ENTER` coincide con cómo se confirma la búsqueda en la app.
-3. `BROWSER_CHANNEL` está como querés.
-4. `HEADLESS = False` mientras pruebas, para ver qué hace el script.
+3. El nombre de la columna A coincide exactamente con el texto de la opción en el dropdown **operator**.
+4. `BROWSER_CHANNEL` está como querés.
+5. `HEADLESS = False` mientras pruebas, para ver qué hace el script.
 
 ## 4. Preparar el XLSX
 
@@ -121,6 +122,6 @@ Al terminar:
 ## Notas
 
 - Los selectores que vienen en el script son placeholders. Hay que reemplazarlos antes de usarlo.
-- Si la app muestra sugerencias al escribir en el campo del assignee, hay que agregar el click en la opción correcta en `process_row`.
+- Si un assignee de la columna A no existe en el dropdown **operator**, esa fila queda en `ERROR` y el script sigue con la siguiente.
 - Si una fila falla, el script sigue con la siguiente.
 - El archivo de entrada tiene que ser `.xlsx`. Otros formatos (CSV, XLS) no se aceptan.

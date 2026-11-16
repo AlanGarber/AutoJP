@@ -5,7 +5,7 @@ Asigna casos a cada empleado en Pega a partir de un XLSX (una pasada por fila).
 Por cada fila:
   1. Busca el JPV (columna B) en la search bar y confirma la búsqueda.
   2. Abre Actions y elige Reassign.
-  3. Escribe el assignee (columna A) en el campo "label operator".
+  3. Elige el assignee (columna A) en el dropdown "operator".
   4. Hace click en Submit, Close y Save.
 
 Al inicio, el script hace los clicks de SSO (si AUTO_SSO_CLICKS es True).
@@ -44,10 +44,11 @@ SEARCH_INPUT = "input[placeholder='Search']"       # search bar donde va el JPV
 SEARCH_BUTTON = "role=button[name='Search']"        # lupa (se usa si SEARCH_WITH_ENTER es False)
 SEARCH_WITH_ENTER = True                            # True: Enter confirma la búsqueda; False: click en la lupa
 
-# --- Acciones sobre el caso ---
+# --- Acciones sobre el caso (dentro del iframe de Pega) ---
+PEGA_FRAME = "iframe[name='PegaGadget1Ifr']"       # iframe donde está la UI de Pega
 ACTIONS_MENU = "role=button[name='Actions']"        # PegaGadget Actions
 REASSIGN_OPTION = "role=menuitem[name='Reassign']"  # PegaGadget Reassign
-OPERATOR_INPUT = "input[aria-label='Operator']"     # campo "label operator", donde va el assignee
+OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
 SUBMIT_BUTTON = "role=button[name='Submit']"        # PegaGadget Submit
 CLOSE_BUTTON = "role=button[name='Close']"          # PegaGadget Close
 SAVE_BUTTON = "role=button[name='Save']"            # PegaGadget Save
@@ -124,25 +125,23 @@ def process_row(page: Page, assignee: str, jpv: str) -> None:
         page.locator(SEARCH_BUTTON).click()
     page.wait_for_timeout(STEP_PAUSE_MS)
 
+    pega = page.frame_locator(PEGA_FRAME)
+
     # 2) Actions > Reassign
-    page.locator(ACTIONS_MENU).click()
-    page.locator(REASSIGN_OPTION).click()
+    pega.locator(ACTIONS_MENU).click()
+    pega.locator(REASSIGN_OPTION).click()
     page.wait_for_timeout(STEP_PAUSE_MS)
 
-    # 3) Escribir el assignee en "label operator"
-    operator = page.locator(OPERATOR_INPUT)
-    operator.click()
-    operator.fill("")
-    operator.press_sequentially(assignee, delay=TYPING_DELAY_MS)
-    # Si la app muestra sugerencias y hay que elegir una, agregar el click acá.
+    # 3) Elegir el assignee en el dropdown "operator" (por texto visible de la opción)
+    pega.get_by_label(OPERATOR_LABEL).select_option(label=assignee)
     page.wait_for_timeout(STEP_PAUSE_MS)
 
     # 4) Submit, Close y Save
-    page.locator(SUBMIT_BUTTON).click()
+    pega.locator(SUBMIT_BUTTON).click()
     page.wait_for_timeout(STEP_PAUSE_MS)
-    page.locator(CLOSE_BUTTON).click()
+    pega.locator(CLOSE_BUTTON).click()
     page.wait_for_timeout(STEP_PAUSE_MS)
-    page.locator(SAVE_BUTTON).click()
+    pega.locator(SAVE_BUTTON).click()
     page.wait_for_timeout(STEP_PAUSE_MS)
 
 
