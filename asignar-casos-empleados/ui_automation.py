@@ -4,9 +4,11 @@ Asigna casos a cada empleado en Pega a partir de un XLSX (una pasada por fila).
 
 Por cada fila:
   1. Busca el JPV (columna B) en la search bar y confirma la búsqueda.
-  2. Abre Actions y elige Reassign.
-  3. Elige el assignee (columna A) en el dropdown "operator".
-  4. Hace click en Submit y Close. No hace falta Save: al reasignar no hay cambios que guardar.
+  2. Si el tipo de caso (columna D) es Miscellaneous: Actions > Change Case Type,
+     elige Amendment en el dropdown y hace Submit.
+  3. Abre Actions y elige Reassign.
+  4. Elige el assignee (columna A) en el dropdown "operator".
+  5. Hace click en Submit y Close. No hace falta Save: al reasignar no hay cambios que guardar.
 
 Al inicio, el script hace los clicks de SSO (si AUTO_SSO_CLICKS es True).
 Usuario, contraseña y MFA los completás vos antes de que empiece la carga.
@@ -56,6 +58,8 @@ REASSIGN_OPTION = "role=menuitem[name='Reassign']"  # PegaGadget Reassign
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
 SUBMIT_BUTTON = "role=button[name='Submit']"        # PegaGadget Submit
 CLOSE_BUTTON = "role=button[name='Close']"          # PegaGadget Close
+CHANGE_CASE_TYPE_OPTION = "role=menuitem[name='Change case type']"  # opción dentro de Actions
+NEW_CASE_TYPE_LABEL = "Select New Case Type"        # label del dropdown donde se elige el nuevo tipo de caso
 
 XLSX_SHEET = None          # None = primera hoja; o el nombre de la hoja, por ejemplo "Hoja1"
 XLSX_HAS_HEADER = True     # True: la primera fila es encabezado y se saltea
@@ -63,6 +67,9 @@ COL_ASSIGNEE = "A"         # columna con el assignee
 COL_JPV = "B"              # columna con el identificador JPV
 COL_TEAM = "C"             # columna con el equipo
 TEAMS_ALLOWED = {"AUTOCV", "FX ChaseTr"}  # solo se procesan las filas de estos equipos; el resto se omite
+COL_CASE_TYPE = "D"        # columna con el tipo de caso
+CASE_TYPE_TRIGGER = "Miscellaneous"  # si la fila tiene este tipo, antes de reasignar se cambia el tipo de caso
+NEW_CASE_TYPE = "JPM-Work-Shared-WDPC-Exp-AmendBen"  # VALUE de la opción en el dropdown (no el texto visible)
 
 # Nombres del XLSX que no coinciden con el dropdown de la app: {nombre_en_xlsx: nombre_en_app}
 NAME_ALIASES = {
@@ -95,13 +102,14 @@ def to_text(value) -> str:
 
 
 def read_rows(path: Path):
-    """Devuelve [(nro_fila, assignee, jpv, equipo)] para cada fila válida del XLSX."""
+    """Devuelve [(nro_fila, assignee, jpv, equipo, tipo_caso)] para cada fila válida del XLSX."""
     wb = load_workbook(path, read_only=True, data_only=True)
     try:
         ws = wb[XLSX_SHEET] if XLSX_SHEET else wb.active
         idx_assignee = column_index_from_string(COL_ASSIGNEE) - 1
         idx_jpv = column_index_from_string(COL_JPV) - 1
         idx_team = column_index_from_string(COL_TEAM) - 1
+        idx_case_type = column_index_from_string(COL_CASE_TYPE) - 1
         first_row = 2 if XLSX_HAS_HEADER else 1
 
         rows = []
@@ -112,11 +120,12 @@ def read_rows(path: Path):
             assignee = NAME_ALIASES.get(assignee, assignee)
             jpv = to_text(cells[idx_jpv]) if idx_jpv < len(cells) else ""
             team = to_text(cells[idx_team]) if idx_team < len(cells) else ""
+            case_type = to_text(cells[idx_case_type]) if idx_case_type < len(cells) else ""
             if not assignee or not jpv:
                 if assignee or jpv:  # fila incompleta: se avisa, no se procesa
                     log.warning("Fila %d omitida (falta assignee o JPV)", row_no)
                 continue
-            rows.append((row_no, assignee, jpv, team))
+            rows.append((row_no, assignee, jpv, team, case_type))
         return rows
     finally:
         wb.close()
@@ -133,7 +142,7 @@ class StepError(Exception):
     """Error en un paso de una fila. El mensaje incluye el nombre del paso."""
 
 
-def process_row(page: Page, assignee: str, jpv: str) -> None:
+def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
     pega = page.frame_locator(PEGA_FRAME)
     paso = "buscar JPV"
     try:
@@ -150,19 +159,33 @@ def process_row(page: Page, assignee: str, jpv: str) -> None:
             page.locator(SEARCH_BUTTON).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
 
-        # 2) Actions > Reassign
+        # 2) Solo para Miscellaneous: Actions > Change Case Type > Amendment > Submit
+        if case_type == CASE_TYPE_TRIGGER:
+            paso = "Actions (cambio de tipo)"
+            pega.locator(ACTIONS_MENU).click()
+            paso = "Change case type"
+            pega.locator(CHANGE_CASE_TYPE_OPTION).click()
+            page.wait_for_timeout(STEP_PAUSE_MS)
+            paso = "Select New Case Type"
+            pega.get_by_label(NEW_CASE_TYPE_LABEL).select_option(value=NEW_CASE_TYPE)
+            page.wait_for_timeout(STEP_PAUSE_MS)
+            paso = "Submit (cambio de tipo)"
+            pega.locator(SUBMIT_BUTTON).click()
+            page.wait_for_timeout(STEP_PAUSE_MS)
+
+        # 3) Actions > Reassign
         paso = "Actions"
         pega.locator(ACTIONS_MENU).click()
         paso = "Reassign"
         pega.locator(REASSIGN_OPTION).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
 
-        # 3) Elegir el assignee en el dropdown "operator" (por texto visible de la opción)
+        # 4) Elegir el assignee en el dropdown "operator" (por texto visible de la opción)
         paso = "operator (assignee)"
         pega.get_by_label(OPERATOR_LABEL).select_option(label=assignee)
         page.wait_for_timeout(STEP_PAUSE_MS)
 
-        # 4) Submit y Close (sin Save: la reasignación no deja nada por guardar)
+        # 5) Submit y Close (sin Save: la reasignación no deja nada por guardar)
         paso = "Submit"
         pega.locator(SUBMIT_BUTTON).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
@@ -224,7 +247,7 @@ def main() -> None:
                 input("Completá usuario, contraseña y MFA en el navegador y presioná Enter para empezar... ")
 
             detenido = False
-            for row_no, assignee, jpv, team in rows:
+            for row_no, assignee, jpv, team, case_type in rows:
                 if detenido:
                     results.append([row_no, assignee, jpv, "NO PROCESADA", "corrida detenida por un error anterior"])
                     continue
@@ -232,7 +255,7 @@ def main() -> None:
                     results.append([row_no, assignee, jpv, "OMITIDA", f"equipo '{team}' fuera de TEAMS_ALLOWED"])
                     continue
                 try:
-                    process_row(page, assignee, jpv)
+                    process_row(page, assignee, jpv, case_type)
                     log.info("Fila %d OK (%s | %s)", row_no, jpv, assignee)
                     results.append([row_no, assignee, jpv, "OK", ""])
                 except Exception as exc:  # noqa: BLE001

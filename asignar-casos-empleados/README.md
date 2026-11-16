@@ -3,9 +3,10 @@
 Reasigna casos a empleados en Pega a partir de un archivo XLSX. Por cada fila:
 
 1. Busca el JPV (columna B) en la search bar y confirma la búsqueda.
-2. Abre **Actions** y elige **Reassign**.
-3. Elige el assignee (columna A) en el dropdown **operator**.
-4. Hace click en **Submit** y **Close**. No hace falta **Save**: al reasignar no hay cambios que guardar.
+2. Si el tipo de caso (columna D) es **Miscellaneous**: **Actions > Change Case Type**, elige **Amendment** en el dropdown **Select New Case Type** y hace click en **Submit**.
+3. Abre **Actions** y elige **Reassign**.
+4. Elige el assignee (columna A) en el dropdown **operator**.
+5. Hace click en **Submit** y **Close**. No hace falta **Save**: al reasignar no hay cambios que guardar.
 
 Al inicio, el script hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). Usuario, contraseña y MFA los completás vos. Solo se procesan las filas de los equipos permitidos (columna C); el resto de las columnas se ignoran. Todo está en un solo archivo: `ui_automation.py`.
 
@@ -33,7 +34,7 @@ playwright codegen --channel msedge https://TU-APP-INTERNA
 
 Si no usás Edge, cambiá `msedge` por `chrome`. Si no tenés ninguno de los dos, quitá `--channel` y usá el Chromium de Playwright, que requiere el paso de descarga de la sección 1.
 
-Se abren dos ventanas: el navegador con la app y el **Inspector**. Hacé el flujo a mano una vez: login, búsqueda del JPV, Actions, Reassign, assignee, Submit y Close. El Inspector muestra una línea por cada acción, por ejemplo:
+Se abren dos ventanas: el navegador con la app y el **Inspector**. Hacé el flujo a mano una vez: login, búsqueda del JPV, Actions, Change Case Type (si corresponde), Reassign, assignee, Submit y Close. El Inspector muestra una línea por cada acción, por ejemplo:
 
 ```python
 page.get_by_role("button", name="Actions").click()
@@ -65,6 +66,8 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 - `REASSIGN_OPTION`: la opción **Reassign** dentro del menú.
 - `OPERATOR_LABEL`: el label del dropdown **operator**, donde se elige el assignee. Por defecto `"operator"`.
 - `SUBMIT_BUTTON` y `CLOSE_BUTTON`: los botones de cada paso.
+- `CHANGE_CASE_TYPE_OPTION`: la opción **Change case type** dentro del menú Actions.
+- `NEW_CASE_TYPE_LABEL`: el label del dropdown **Select New Case Type**.
 
 **Archivo y navegador**
 - `APP_URL`: la URL de la app. No la pongas en el script: usá `config_local.py` (ver abajo).
@@ -72,7 +75,8 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 - `LOGIN_PAUSE`: `True` pausa después del login para que completes usuario, contraseña y MFA.
 - `XLSX_SHEET`: `None` usa la primera hoja. Si el archivo tiene varias, poné el nombre, por ejemplo `"Hoja1"`.
 - `XLSX_HAS_HEADER`: `True` si la primera fila es de encabezado (se saltea).
-- `COL_ASSIGNEE`, `COL_JPV` y `COL_TEAM`: letras de las columnas. Por defecto `A`, `B` y `C`.
+- `COL_ASSIGNEE`, `COL_JPV`, `COL_TEAM` y `COL_CASE_TYPE`: letras de las columnas. Por defecto `A`, `B`, `C` y `D`.
+- `CASE_TYPE_TRIGGER` y `NEW_CASE_TYPE`: si el tipo de caso es `CASE_TYPE_TRIGGER` (por defecto `"Miscellaneous"`), antes de reasignar se cambia a `NEW_CASE_TYPE`. `NEW_CASE_TYPE` es el **value** de la opción en el dropdown, no el texto visible.
 - `TEAMS_ALLOWED`: conjunto de equipos que se procesan. Por defecto `{"AUTOCV", "FX ChaseTr"}`. Las filas de otros equipos quedan como `OMITIDA`. La comparación distingue mayúsculas y minúsculas.
 - `NAME_ALIASES`: nombres del XLSX que no coinciden con el dropdown, como `{"Nombre en XLSX": "Nombre en la app"}`.
 - `BROWSER_CHANNEL`: `"chrome"` o `"msedge"` usa el navegador que ya tenés instalado. `None` usa el Chromium de Playwright.
@@ -93,12 +97,12 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 
 ## 4. Preparar el XLSX
 
-La columna A es el assignee, la columna B es el JPV y la columna C es el equipo. Solo se procesan las filas cuyo equipo está en `TEAMS_ALLOWED`. El resto de las columnas no se usa, así que pueden quedar como estén.
+La columna A es el assignee, la columna B es el JPV, la columna C es el equipo y la columna D es el tipo de caso. Solo se procesan las filas cuyo equipo está en `TEAMS_ALLOWED`. El resto de las columnas no se usa, así que pueden quedar como estén.
 
-| Assignee | JPV | Equipo | (otras columnas, se ignoran) |
-|---|---|---|---|
-| Alan David Garber | JPV2026113-000000 | AUTOCV | ... |
-| Alan David Garber | JPV2026113-000001 | FX ChaseTr | ... |
+| Assignee | JPV | Equipo | Tipo de caso | (otras columnas, se ignoran) |
+|---|---|---|---|---|
+| Alan David Garber | JPV2026113-000000 | AUTOCV | Miscellaneous | ... |
+| Alan David Garber | JPV2026113-000001 | FX ChaseTr | Other | ... |
 
 Armá tu XLSX con esa estructura. Los archivos `.xlsx` no se suben al repo. Las filas sin assignee o sin JPV se omiten y el script lo avisa en la terminal.
 
