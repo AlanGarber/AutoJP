@@ -62,7 +62,8 @@ MENU_CHECK_MS = 2000                                # cuánto esperar a que apar
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
 SUBMIT_BUTTON = "role=button[name='Submit']"        # PegaGadget Submit
 CLOSE_BUTTON = "role=button[name='Close']"          # PegaGadget Close
-WORK_TAB = "role=tabpanel[name='Work']"             # pestaña Work del caso
+WORK_TAB = 'text="Work"'                            # pestaña Work del caso (texto exacto, como en codegen)
+WORK_PANEL = "role=tabpanel[name='Work']"           # contenido de la pestaña Work: ahí figura el asignado
 BOT_ID = "B089707"                                 # si el asignado actual contiene este ID, la fila se saltea
 CHANGE_CASE_TYPE_OPTION = "role=menuitem[name='Change case type']"  # opción dentro de Actions
 NEW_CASE_TYPE_LABEL = "Select New Case Type"        # label del dropdown donde se elige el nuevo tipo de caso
@@ -212,7 +213,7 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
         paso = "iframe de Pega (botón Actions)"
         pega = find_pega_frame(page)
         paso = "leer asignado actual"
-        owner = find_frame_with(page, WORK_TAB).locator(WORK_TAB).inner_text(timeout=PEGA_FRAME_TIMEOUT_MS)
+        owner = find_frame_with(page, WORK_PANEL).locator(WORK_PANEL).inner_text(timeout=PEGA_FRAME_TIMEOUT_MS)
         if not owner.strip():
             raise ValueError("no se pudo leer el asignado actual")
         if BOT_ID in owner:
