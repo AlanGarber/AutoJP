@@ -62,6 +62,8 @@ MENU_CHECK_MS = 2000                                # cuánto esperar a que apar
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
 SUBMIT_BUTTON = "role=button[name='Submit']"        # PegaGadget Submit
 CLOSE_BUTTON = "role=button[name='Close']"          # PegaGadget Close
+WORK_TAB = "role=tabpanel[name='Work']"             # pestaña Work del caso
+BOT_ID = "B089707"                                 # si el asignado actual contiene este ID, la fila se saltea
 CHANGE_CASE_TYPE_OPTION = "role=menuitem[name='Change case type']"  # opción dentro de Actions
 NEW_CASE_TYPE_LABEL = "Select New Case Type"        # label del dropdown donde se elige el nuevo tipo de caso
 
@@ -92,6 +94,7 @@ RECOVER_TIMEOUT_MS = 15000  # cuánto esperar la search bar al recuperarse de un
 # Colores para la terminal: verde = OK, rojo = error
 RED = "\033[91m"
 GREEN = "\033[92m"
+YELLOW = "\033[93m"
 RESET = "\033[0m"
 if sys.platform == "win32":
     os.system("")  # activa los colores ANSI en la terminal de Windows
@@ -153,6 +156,10 @@ class StepError(Exception):
     """Error en un paso de una fila. El mensaje incluye el nombre del paso."""
 
 
+class SkipRow(Exception):
+    """La fila no se procesa a propósito (no es un error)."""
+
+
 def menu_option_visible(pega: FrameLocator, selector: str) -> bool:
     """True si la opción aparece en el menú Actions dentro de MENU_CHECK_MS."""
     try:
@@ -162,19 +169,23 @@ def menu_option_visible(pega: FrameLocator, selector: str) -> bool:
         return False
 
 
-def find_pega_frame(page: Page) -> FrameLocator:
-    """Devuelve el iframe de Pega que contiene el botón Actions.
+def find_frame_with(page: Page, selector: str) -> FrameLocator:
+    """Devuelve el iframe de Pega que contiene el elemento indicado.
 
-    Se busca en vez de fijar el nombre: Pega cambia el número del iframe
-    después de un error o una recarga, y el botón queda en otro iframe.
+    Pega cambia el número del iframe (PegaGadget1Ifr, PegaGadget2Ifr...)
+    después de un error o una recarga, así que no se fija el nombre.
     """
     for _ in range(max(PEGA_FRAME_TIMEOUT_MS // STEP_PAUSE_MS, 1)):
         for frame in page.frames:
-            if frame.name.startswith(PEGA_FRAME_PREFIX) and frame.locator(ACTIONS_MENU).count() > 0:
-                log.info("Iframe de Pega: %s", frame.name)
+            if frame.name.startswith(PEGA_FRAME_PREFIX) and frame.locator(selector).count() > 0:
                 return page.frame_locator(f"iframe[name='{frame.name}']")
         page.wait_for_timeout(STEP_PAUSE_MS)
-    raise TimeoutError("no apareció el botón Actions en ningún iframe de Pega")
+    raise TimeoutError(f"no apareció {selector} en ningún iframe de Pega")
+
+
+def find_pega_frame(page: Page) -> FrameLocator:
+    """Iframe de Pega que contiene el botón Actions."""
+    return find_frame_with(page, ACTIONS_MENU)
 
 
 def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
@@ -193,9 +204,19 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
             page.locator(SEARCH_BUTTON).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
 
-        # Iframe de Pega (se busca después de la búsqueda: el caso se abre recién ahí)
+        # Pestaña Work y verificación del asignado: si es el bot, la fila se saltea
+        paso = "pestaña Work"
+        find_frame_with(page, WORK_TAB).locator(WORK_TAB).click()
+        page.wait_for_timeout(STEP_PAUSE_MS)
+
         paso = "iframe de Pega (botón Actions)"
         pega = find_pega_frame(page)
+        paso = "leer asignado actual"
+        owner = find_frame_with(page, WORK_TAB).locator(WORK_TAB).inner_text(timeout=PEGA_FRAME_TIMEOUT_MS)
+        if not owner.strip():
+            raise ValueError("no se pudo leer el asignado actual")
+        if BOT_ID in owner:
+            raise SkipRow(f"asignado al bot {BOT_ID}")
 
         # 2) Actions. Solo para Miscellaneous y si aparece Change case type:
         #    Change case type > Amendment > Submit, y vuelve a abrir Actions.
@@ -237,6 +258,8 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
         paso = "Close"
         pega.locator(CLOSE_BUTTON).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
+    except SkipRow:
+        raise
     except Exception as exc:
         raise StepError(f"paso '{paso}': {exc}") from exc
 
@@ -303,6 +326,9 @@ def main() -> None:
                     process_row(page, assignee, jpv, case_type)
                     log.info(f"{GREEN}OK - JPV %s asignado a %s{RESET}", jpv, assignee)
                     results.append([row_no, assignee, jpv, "OK", ""])
+                except SkipRow as skip:
+                    log.warning(f"{YELLOW}JPV %s asignado al bot ({BOT_ID}). Se saltea la fila.{RESET}", jpv)
+                    results.append([row_no, assignee, jpv, "OMITIDA", str(skip)])
                 except Exception as exc:  # noqa: BLE001
                     text = str(exc).strip()
                     msg = text.splitlines()[0] if text else type(exc).__name__
