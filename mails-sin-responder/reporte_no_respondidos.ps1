@@ -405,7 +405,7 @@ function Main {
 
     # Tus Enviados: si respondiste "como" la casilla y Exchange guardó la copia solo en los tuyos.
     Write-Host 'Leyendo tus Elementos enviados...'
-    $mySent = Read-Folder $namespace.GetDefaultFolder($olFolderSentMail) 'SentOn' $dayStart $dayEnd $false $toSent
+    $mySent = Read-Folder $namespace.GetDefaultFolder($olFolderSentMail) 'SentOn' $dayStart $dayEnd $IncluirSubcarpetas $toSent
 
     $allRows = @()
     $allStats = @()
@@ -426,7 +426,7 @@ function Main {
         if ($mailbox.Enviados -and $mailbox.Nombre -ne 'Personal') {
             Write-Host "[$($mailbox.Nombre)] Leyendo Elementos enviados..."
             try {
-                foreach ($s in (Read-Folder $mailbox.Enviados 'SentOn' $dayStart $dayEnd $false $toSent)) { $sent.Add($s) }
+                foreach ($s in (Read-Folder $mailbox.Enviados 'SentOn' $dayStart $dayEnd $IncluirSubcarpetas $toSent)) { $sent.Add($s) }
             } catch {
                 Write-Warning "No pude leer los Enviados de '$($mailbox.Nombre)': $($_.Exception.Message)"
             }

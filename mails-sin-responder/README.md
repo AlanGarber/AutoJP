@@ -34,7 +34,7 @@ Abrí `reporte_no_respondidos.ps1` con el Bloc de notas y completá la sección 
   ```
 
 - `$Equipo` (recomendado): los emails de las personas que responden desde las casillas. Así, si alguien contesta con la casilla en copia, cuenta como respondido, y los mails internos entre ustedes no aparecen como pendientes.
-- `$IncluirSubcarpetas`: revisar también las subcarpetas de la Bandeja de entrada.
+- `$IncluirSubcarpetas`: revisar también las subcarpetas de la Bandeja de entrada y de Elementos enviados.
 - `$SoloSiEstaEnPara`: `$true` para ignorar los mails donde la casilla está solo en CC o llegó por una lista.
 - `$ContarReenvioComoRespuesta`: `$true` para que reenviar un mail cuente como respuesta.
 - `$AgruparPorConversacion`: `$true` para ver una sola fila por hilo.
