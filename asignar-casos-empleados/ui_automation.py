@@ -62,6 +62,14 @@ XLSX_SHEET = None          # None = primera hoja; o el nombre de la hoja, por ej
 XLSX_HAS_HEADER = True     # True: la primera fila es encabezado y se saltea
 COL_ASSIGNEE = "A"         # columna con el assignee
 COL_JPV = "B"              # columna con el identificador JPV
+COL_TEAM = "C"             # columna con el equipo
+TEAMS_ALLOWED = {"AUTOCV", "FX ChaseTr"}  # solo se procesan las filas de estos equipos; el resto se omite
+
+# Nombres del XLSX que no coinciden con el dropdown de la app: {nombre_en_xlsx: nombre_en_app}
+NAME_ALIASES = {
+    "Iara Mañani": "Iara Belen Manani",
+    "Luciana Scarone": "Luciana Veronica Scarone",
+}
 
 BROWSER_CHANNEL = "msedge"  # "chrome" o "msedge": usa el navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False        # False: ves la automatización corriendo
@@ -88,12 +96,13 @@ def to_text(value) -> str:
 
 
 def read_rows(path: Path):
-    """Devuelve [(nro_fila, assignee, jpv)] para cada fila válida del XLSX."""
+    """Devuelve [(nro_fila, assignee, jpv, equipo)] para cada fila válida del XLSX."""
     wb = load_workbook(path, read_only=True, data_only=True)
     try:
         ws = wb[XLSX_SHEET] if XLSX_SHEET else wb.active
         idx_assignee = column_index_from_string(COL_ASSIGNEE) - 1
         idx_jpv = column_index_from_string(COL_JPV) - 1
+        idx_team = column_index_from_string(COL_TEAM) - 1
         first_row = 2 if XLSX_HAS_HEADER else 1
 
         rows = []
@@ -101,12 +110,14 @@ def read_rows(path: Path):
             ws.iter_rows(min_row=first_row, values_only=True), start=first_row
         ):
             assignee = to_text(cells[idx_assignee]) if idx_assignee < len(cells) else ""
+            assignee = NAME_ALIASES.get(assignee, assignee)
             jpv = to_text(cells[idx_jpv]) if idx_jpv < len(cells) else ""
+            team = to_text(cells[idx_team]) if idx_team < len(cells) else ""
             if not assignee or not jpv:
                 if assignee or jpv:  # fila incompleta: se avisa, no se procesa
                     log.warning("Fila %d omitida (falta assignee o JPV)", row_no)
                 continue
-            rows.append((row_no, assignee, jpv))
+            rows.append((row_no, assignee, jpv, team))
         return rows
     finally:
         wb.close()
@@ -204,9 +215,12 @@ def main() -> None:
             input("Completá usuario, contraseña y MFA en el navegador y presioná Enter para empezar... ")
 
         detenido = False
-        for row_no, assignee, jpv in rows:
+        for row_no, assignee, jpv, team in rows:
             if detenido:
                 results.append([row_no, assignee, jpv, "NO PROCESADA", "corrida detenida por un error anterior"])
+                continue
+            if team not in TEAMS_ALLOWED:
+                results.append([row_no, assignee, jpv, "OMITIDA", f"equipo '{team}' fuera de TEAMS_ALLOWED"])
                 continue
             try:
                 process_row(page, assignee, jpv)

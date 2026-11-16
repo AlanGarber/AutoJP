@@ -7,7 +7,7 @@ Reasigna casos a empleados en Pega a partir de un archivo XLSX. Por cada fila:
 3. Elige el assignee (columna A) en el dropdown **operator**.
 4. Hace click en **Submit**, **Close** y **Save**.
 
-Al inicio, el script hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). Usuario, contraseña y MFA los completás vos. Las demás columnas del archivo se ignoran. Todo está en un solo archivo: `ui_automation.py`.
+Al inicio, el script hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). Usuario, contraseña y MFA los completás vos. Solo se procesan las filas de los equipos permitidos (columna C); el resto de las columnas se ignoran. Todo está en un solo archivo: `ui_automation.py`.
 
 ## 1. Instalación
 
@@ -72,7 +72,9 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 - `LOGIN_PAUSE`: `True` pausa después del login para que completes usuario, contraseña y MFA.
 - `XLSX_SHEET`: `None` usa la primera hoja. Si el archivo tiene varias, poné el nombre, por ejemplo `"Hoja1"`.
 - `XLSX_HAS_HEADER`: `True` si la primera fila es de encabezado (se saltea).
-- `COL_ASSIGNEE` y `COL_JPV`: letras de las columnas. Por defecto `A` y `B`.
+- `COL_ASSIGNEE`, `COL_JPV` y `COL_TEAM`: letras de las columnas. Por defecto `A`, `B` y `C`.
+- `TEAMS_ALLOWED`: conjunto de equipos que se procesan. Por defecto `{"AUTOCV", "FX ChaseTr"}`. Las filas de otros equipos quedan como `OMITIDA`. La comparación distingue mayúsculas y minúsculas.
+- `NAME_ALIASES`: nombres del XLSX que no coinciden con el dropdown, como `{"Nombre en XLSX": "Nombre en la app"}`.
 - `BROWSER_CHANNEL`: `"chrome"` o `"msedge"` usa el navegador que ya tenés instalado. `None` usa el Chromium de Playwright.
 
 **URL de la app (sin subirla al repo)**
@@ -91,12 +93,12 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 
 ## 4. Preparar el XLSX
 
-La columna A es el assignee y la columna B es el JPV. El resto de las columnas no se usa, así que pueden quedar como estén.
+La columna A es el assignee, la columna B es el JPV y la columna C es el equipo. Solo se procesan las filas cuyo equipo está en `TEAMS_ALLOWED`. El resto de las columnas no se usa, así que pueden quedar como estén.
 
-| Assignee | JPV | (otras columnas, se ignoran) |
-|---|---|---|
-| Alan David Garber | JPV2026113-000000 | ... |
-| Alan David Garber | JPV2026113-000001 | ... |
+| Assignee | JPV | Equipo | (otras columnas, se ignoran) |
+|---|---|---|---|
+| Alan David Garber | JPV2026113-000000 | AUTOCV | ... |
+| Alan David Garber | JPV2026113-000001 | FX ChaseTr | ... |
 
 Armá tu XLSX con esa estructura. Los archivos `.xlsx` no se suben al repo. Las filas sin assignee o sin JPV se omiten y el script lo avisa en la terminal.
 
@@ -121,7 +123,7 @@ python ui_automation.py datos.xlsx
 
 Al terminar:
 
-- `resultados.csv`: el estado (`OK` o `ERROR`) de cada fila.
+- `resultados.csv`: el estado de cada fila: `OK`, `ERROR`, `OMITIDA` (equipo fuera de `TEAMS_ALLOWED`) o `NO PROCESADA` (la corrida se detuvo antes).
 - `error_fila_N.png`: captura de la pantalla donde falló la fila N del XLSX.
 
 `OK` indica que los pasos corrieron sin error. Confirmá en la app que la reasignación quedó guardada.
