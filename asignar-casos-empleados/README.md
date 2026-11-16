@@ -67,13 +67,20 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 - `SUBMIT_BUTTON`, `CLOSE_BUTTON` y `SAVE_BUTTON`: los botones de cada paso.
 
 **Archivo y navegador**
-- `APP_URL`: la URL de la app.
+- `APP_URL`: la URL de la app. No la pongas en el script: usá `config_local.py` (ver abajo).
 - `AUTO_SSO_CLICKS`: `True` hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). `False` si preferís hacerlos a mano.
 - `LOGIN_PAUSE`: `True` pausa después del login para que completes usuario, contraseña y MFA.
 - `XLSX_SHEET`: `None` usa la primera hoja. Si el archivo tiene varias, poné el nombre, por ejemplo `"Hoja1"`.
 - `XLSX_HAS_HEADER`: `True` si la primera fila es de encabezado (se saltea).
 - `COL_ASSIGNEE` y `COL_JPV`: letras de las columnas. Por defecto `A` y `B`.
 - `BROWSER_CHANNEL`: `"chrome"` o `"msedge"` usa el navegador que ya tenés instalado. `None` usa el Chromium de Playwright.
+
+**URL de la app (sin subirla al repo)**
+
+1. Copiá `config_local.example.py` como `config_local.py`, en esta misma carpeta.
+2. Completá `APP_URL` con la URL real.
+
+`config_local.py` está en `.gitignore`, así que no se sube. El script lo usa automáticamente si existe.
 
 **Checklist antes de la primera corrida:**
 1. Todos los selectores tienen valores reales, no los de ejemplo.

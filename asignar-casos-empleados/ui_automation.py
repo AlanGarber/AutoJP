@@ -38,6 +38,11 @@ from playwright.sync_api import Page, sync_playwright
 # Los valores de ejemplo son placeholders.
 # =====================================================================
 APP_URL = "https://TU-APP-INTERNA"
+try:
+    # URL real, en config_local.py (ver config_local.example.py). No se sube al repo.
+    from config_local import APP_URL
+except ImportError:
+    pass
 
 # --- Búsqueda por JPV ---
 SEARCH_INPUT = "role=textbox[name='Search']"       # search bar donde va el JPV
