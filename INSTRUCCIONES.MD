@@ -7,7 +7,7 @@ Este script reasigna los casos de PRPC según un archivo de Excel (la distribuci
 Necesitás acceso al repositorio `AlanGarber/AutoJP` en GitHub. Si no lo tenés, pedile acceso a Alan. Necesitás tener Git instalado.
 
 1. Buscá `devshell` en el menú Inicio y abrilo.
-2. Antes de copiar, cambiá `SID` por tu usuario de Windows. Después copiá y pegá estas dos líneas, una por una, apretando Enter después de cada una:
+2. Antes de copiar, reemplazá `SID` por tu SID. Después copiá y pegá estas dos líneas, una por una, apretando Enter después de cada una:
 
 ```
 cd "C:\Users\SID\OneDrive - JPMorgan Chase\Desktop"
@@ -50,7 +50,7 @@ Arrastrá el Excel a la carpeta `asignar-casos-empleados`, la misma donde está 
 
 ## Paso 3: Abrir la terminal en la carpeta del script
 
-Abrí la terminal (`devshell`). Antes de copiar la línea, cambiá `SID` por tu usuario de Windows. Después pegala y apretá Enter:
+Abrí la terminal (`devshell`). Antes de copiar la línea, reemplazá `SID` por tu SID. Después pegala y apretá Enter:
 
 ```
 cd "C:\Users\SID\OneDrive - JPMorgan Chase\Desktop\AutoJP\asignar-casos-empleados"
