@@ -58,7 +58,7 @@ PEGA_FRAME_TIMEOUT_MS = 15000                       # cuánto buscar el iframe c
 ACTIONS_MENU = "role=button[name='Actions'] >> visible=true"        # PegaGadget Actions
 REASSIGN_OPTION = "role=menuitem[name='Reassign'] >> visible=true"  # PegaGadget Reassign
 STEP_BY_STEP_OPTION = "role=menuitem[name='Step By Step:'] >> visible=true"  # opción que se usa si Reassign no aparece en Actions
-PERFORM_RESEARCH_OPTION = "role=menuitem[name='Perform research:'] >> visible=true"  # opción que se usa si tampoco aparece Step By Step
+PERFORM_RESEARCH_OPTION = "role=menuitem[name=/^Perform research/i] >> visible=true"  # opción que se usa si tampoco aparece Step By Step
 MENU_CHECK_MS = 2000                                # cuánto esperar a que aparezca una opción del menú Actions
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
 SUBMIT_BUTTON = "role=button[name='Submit'] >> visible=true"        # PegaGadget Submit
