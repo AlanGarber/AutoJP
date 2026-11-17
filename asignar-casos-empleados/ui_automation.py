@@ -64,6 +64,7 @@ SUBMIT_BUTTON = "role=button[name='Submit']"        # PegaGadget Submit
 CLOSE_BUTTON = "role=button[name='Close']"          # PegaGadget Close
 WORK_TAB = 'text="Work"'                            # pestaña Work del caso (texto exacto, como en codegen)
 WORK_PANEL = "role=tabpanel[name='Work']"           # contenido de la pestaña Work: ahí figura el asignado
+OWNERS_ALLOWED = ("FX12", "AutoCV")                 # el reassign solo se hace si el campo Work dice alguno de estos
 BOT_ID = "B089707"                                 # si el asignado actual contiene este ID, la fila se saltea
 CHANGE_CASE_TYPE_OPTION = "role=menuitem[name='Change case type']"  # opción dentro de Actions
 NEW_CASE_TYPE_LABEL = "Select New Case Type"        # label del dropdown donde se elige el nuevo tipo de caso
@@ -218,6 +219,8 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
             raise ValueError("no se pudo leer el asignado actual")
         if BOT_ID in owner:
             raise SkipRow(f"asignado al bot {BOT_ID}")
+        if not any(o in owner for o in OWNERS_ALLOWED):
+            raise SkipRow(f"no se reasigna: el campo Work no dice {' ni '.join(OWNERS_ALLOWED)}")
 
         # 2) Actions. Solo para Miscellaneous y si aparece Change case type:
         #    Change case type > Amendment > Submit, y vuelve a abrir Actions.
@@ -328,7 +331,7 @@ def main() -> None:
                     log.info(f"{GREEN}OK - JPV %s asignado a %s{RESET}", jpv, assignee)
                     results.append([row_no, assignee, jpv, "OK", ""])
                 except SkipRow as skip:
-                    log.warning(f"{YELLOW}JPV %s asignado al bot ({BOT_ID}). Se saltea la fila.{RESET}", jpv)
+                    log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, skip)
                     results.append([row_no, assignee, jpv, "OMITIDA", str(skip)])
                 except Exception as exc:  # noqa: BLE001
                     text = str(exc).strip()
