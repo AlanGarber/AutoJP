@@ -58,6 +58,7 @@ PEGA_FRAME_TIMEOUT_MS = 15000                       # cuánto buscar el iframe c
 ACTIONS_MENU = "role=button[name='Actions']"        # PegaGadget Actions
 REASSIGN_OPTION = "role=menuitem[name='Reassign']"  # PegaGadget Reassign
 STEP_BY_STEP_OPTION = "role=menuitem[name='Step By Step:']"  # opción que se usa si Reassign no aparece en Actions
+PERFORM_RESEARCH_OPTION = "role=menuitem[name='Perform research:']"  # opción que se usa si tampoco aparece Step By Step
 MENU_CHECK_MS = 2000                                # cuánto esperar a que aparezca una opción del menú Actions
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
 SUBMIT_BUTTON = "role=button[name='Submit']"        # PegaGadget Submit
@@ -244,8 +245,12 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
 
         # 3) Reassign (si no aparece: Step By Step, y después Reassign)
         if not menu_option_visible(pega, REASSIGN_OPTION):
-            paso = "Step By Step"
-            pega.locator(STEP_BY_STEP_OPTION).click()
+            if menu_option_visible(pega, STEP_BY_STEP_OPTION):
+                paso = "Step By Step"
+                pega.locator(STEP_BY_STEP_OPTION).click()
+            else:
+                paso = "Perform research"
+                pega.locator(PERFORM_RESEARCH_OPTION).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
         paso = "Reassign"
         pega.locator(REASSIGN_OPTION).click()

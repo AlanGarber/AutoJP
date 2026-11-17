@@ -4,7 +4,7 @@ Reasigna casos a empleados en Pega a partir de un archivo XLSX. Por cada fila:
 
 1. Busca el JPV (columna B) en la search bar y confirma la búsqueda.
 2. Si el tipo de caso (columna D) es **Miscellaneous** y aparece **Change case type** en el menú **Actions**: elige **Amendment** en el dropdown **Select New Case Type** y hace click en **Submit**. Si no aparece, sigue con Reassign.
-3. Abre **Actions** y elige **Reassign**. Si **Reassign** no aparece en el menú, elige **Step By Step:** y después **Reassign**.
+3. Abre **Actions** y elige **Reassign**. Si **Reassign** no aparece en el menú, elige **Step By Step:**; si tampoco aparece, elige **Perform research:**. Después elige **Reassign**.
 4. Elige el assignee (columna A) en el dropdown **operator**.
 5. Hace click en **Submit** y **Close**. No hace falta **Save**: al reasignar no hay cambios que guardar.
 
