@@ -55,19 +55,19 @@ SEARCH_WITH_ENTER = True                            # True: Enter confirma la b�
 # --- Acciones sobre el caso (dentro del iframe de Pega) ---
 PEGA_FRAME_PREFIX = "PegaGadget"                    # Pega cambia el número del iframe (PegaGadget1Ifr, PegaGadget2Ifr...)
 PEGA_FRAME_TIMEOUT_MS = 15000                       # cuánto buscar el iframe con el botón Actions
-ACTIONS_MENU = "role=button[name='Actions']"        # PegaGadget Actions
-REASSIGN_OPTION = "role=menuitem[name='Reassign']"  # PegaGadget Reassign
-STEP_BY_STEP_OPTION = "role=menuitem[name='Step By Step:']"  # opción que se usa si Reassign no aparece en Actions
-PERFORM_RESEARCH_OPTION = "role=menuitem[name='Perform research:']"  # opción que se usa si tampoco aparece Step By Step
+ACTIONS_MENU = "role=button[name='Actions'] >> visible=true"        # PegaGadget Actions
+REASSIGN_OPTION = "role=menuitem[name='Reassign'] >> visible=true"  # PegaGadget Reassign
+STEP_BY_STEP_OPTION = "role=menuitem[name='Step By Step:'] >> visible=true"  # opción que se usa si Reassign no aparece en Actions
+PERFORM_RESEARCH_OPTION = "role=menuitem[name='Perform research:'] >> visible=true"  # opción que se usa si tampoco aparece Step By Step
 MENU_CHECK_MS = 2000                                # cuánto esperar a que aparezca una opción del menú Actions
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
-SUBMIT_BUTTON = "role=button[name='Submit']"        # PegaGadget Submit
-CLOSE_BUTTON = "role=button[name='Close']"          # PegaGadget Close
-WORK_TAB = 'text="Work"'                            # pestaña Work del caso (texto exacto, como en codegen)
-WORK_PANEL = "role=tabpanel[name='Work']"           # contenido de la pestaña Work: ahí figura el asignado
+SUBMIT_BUTTON = "role=button[name='Submit'] >> visible=true"        # PegaGadget Submit
+CLOSE_BUTTON = "role=button[name='Close'] >> visible=true"          # PegaGadget Close
+WORK_TAB = 'text="Work" >> visible=true'                            # pestaña Work del caso (texto exacto, como en codegen)
+WORK_PANEL = "role=tabpanel[name='Work'] >> visible=true"           # contenido de la pestaña Work: ahí figura el asignado
 OWNERS_ALLOWED = ("FX12", "AutoCV")                 # el reassign solo se hace si el campo Work dice alguno de estos
 BOT_ID = "B089707"                                 # si el asignado actual contiene este ID, la fila se saltea
-CHANGE_CASE_TYPE_OPTION = "role=menuitem[name='Change case type']"  # opción dentro de Actions
+CHANGE_CASE_TYPE_OPTION = "role=menuitem[name='Change case type'] >> visible=true"  # opción dentro de Actions
 NEW_CASE_TYPE_LABEL = "Select New Case Type"        # label del dropdown donde se elige el nuevo tipo de caso
 
 XLSX_SHEET = None          # None = primera hoja; o el nombre de la hoja, por ejemplo "Hoja1"
