@@ -91,6 +91,7 @@ AUTO_SSO_CLICKS = True  # True: el script hace click en "Login with SSO" y en "J
 LOGIN_PAUSE = True      # True: pausa para completar usuario, contraseña y MFA antes de empezar
 STEP_PAUSE_MS = 300     # pausa breve entre pasos
 PAUSE_BETWEEN_ROWS_MS = 1500  # pausa mínima entre una fila y la siguiente
+POST_SEARCH_PAUSE_MS = 2000   # espera después de buscar el JPV, antes de tocar el caso (Work, Actions)
 RECOVER_TIMEOUT_MS = 15000  # cuánto esperar la search bar al recuperarse de un error
 
 # Colores para la terminal: verde = OK, rojo = error
@@ -204,7 +205,7 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
             search.press("Enter")
         else:
             page.locator(SEARCH_BUTTON).click()
-        page.wait_for_timeout(STEP_PAUSE_MS)
+        page.wait_for_timeout(POST_SEARCH_PAUSE_MS)
 
         # Pestaña Work y verificación del asignado: si es el bot, la fila se saltea
         paso = "pestaña Work"
@@ -308,8 +309,8 @@ def main() -> None:
     results = []
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS)
-            page = browser.new_page()
+            browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS, args=["--start-maximized"])
+            page = browser.new_page(no_viewport=True)
             page.goto(APP_URL)
 
             if AUTO_SSO_CLICKS:
