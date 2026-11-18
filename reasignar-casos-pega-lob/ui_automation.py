@@ -98,6 +98,7 @@ DRY_RUN = False                # True: hace todo hasta Close y Discard, sin guar
 BROWSER_CHANNEL = "msedge"     # "chrome" o "msedge": navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False               # False: ves la automatización corriendo
 MAXIMIZAR_VENTANA = True       # True: maximiza el navegador y la basket, para que Pega muestre todos los dropdowns
+ZOOM_BASKET = 0.5             # zoom aplicado a la basket (0.5 = 50%, más filas a la vista). None o 1 para no aplicar
 SCROLL_PASO_PX = 150           # cuánto baja la grilla en cada paso chico al buscar un JPV
 SCROLL_ESPERA_MS = 300         # pausa después de cada paso de scroll, para que Pega renderice las filas
 SCROLL_MAX_PASOS = 400         # tope de seguridad de pasos por página (el recorrido termina solo al llegar al final)
@@ -164,6 +165,21 @@ def diagnosticar_dropdowns(page: Page) -> str:
         if labels:
             partes.append(f"  frame '{frame.name or 'principal'}': {labels}")
     return "\n".join(partes) or "  ningún dropdown (select) en ningún frame"
+
+
+def aplicar_zoom_basket(basket: Page) -> None:
+    """Achica la vista de la basket con zoom CSS, para que entren más filas y el scroll sea más corto.
+
+    Se aplica una sola vez al cargar la basket. Si ya hiciste Ctrl + - a mano en el mismo sitio,
+    el efecto se suma: en ese caso poné ZOOM_BASKET = None.
+    """
+    if ZOOM_BASKET is None or ZOOM_BASKET == 1:
+        return
+    basket.evaluate(
+        "(zoom) => { document.documentElement.style.zoom = String(zoom); }",
+        ZOOM_BASKET,
+    )
+    basket.wait_for_timeout(STEP_PAUSE_MS)
 
 
 def maximizar_ventana(page: Page) -> None:
@@ -340,6 +356,7 @@ def abrir_basket(main_page: Page) -> Page:
     basket = popup_info.value
     basket.wait_for_load_state()
     maximizar_ventana(basket)
+    aplicar_zoom_basket(basket)
     return basket
 
 
@@ -503,6 +520,7 @@ def main():
             input("Completá usuario, contraseña y MFA, abrí la basket desde 'View Queue for' (popup) y después presioná Enter acá... ")
             basket = find_basket(context, main_page)
             maximizar_ventana(basket)
+            aplicar_zoom_basket(basket)
 
         for idx, (nro, lob, col_b, jpv) in enumerate(rows):
             if basket.is_closed():

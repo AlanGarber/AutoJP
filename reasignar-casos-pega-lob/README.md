@@ -58,6 +58,7 @@ Codegen graba lo que tipeás en el login. No dejes contraseñas en el archivo an
 
 **Ejecución**
 - `DRY_RUN`: `True` simula. `False` reasigna de verdad.
+- `ZOOM_BASKET`: zoom de la basket (0.5 = 50%). El script lo aplica solo, para ver más filas. `None` para no aplicar.
 - `BROWSER_CHANNEL`: `"msedge"`, `"chrome"` o `None`.
 
 ## 4. Preparar el XLSX
