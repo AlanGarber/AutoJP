@@ -3,7 +3,7 @@
 Reasigna casos de Pega a la work queue que corresponde a su LOB, a partir de un XLSX. Por cada fila:
 
 1. Hace click en el JPV (columna C, **ID**) en la basket. La basket es un popup.
-2. El caso se abre en la ventana principal de Pega. Pestaña **Work**: si el case owner no es `TSFX1213`, la fila se saltea.
+2. El caso se abre en la ventana principal de Pega. Pestaña **Work**: si el case owner no es `FX1213`, la fila se saltea.
 3. **Actions** > **Reassign**.
 4. Elige la work queue en el dropdown **Work Queue**:
    - Columna A (**Comments**) `Corp&FI` → `WDPCTSTWRKFX12`. `Retail` → `WDPCTSTWRKFX13`.
@@ -85,11 +85,11 @@ python ui_automation.py datos.xlsx
 4. El script maximiza la basket y procesa cada fila. Si el JPV no está a la vista en la grilla, la busca bajando con la rueda del mouse y, si no aparece, desde el inicio. Si tampoco aparece, la fila se omite.
 
 Al terminar:
-- `resultados.csv`: estado de cada fila. `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (case owner distinto de `TSFX1213`, JPV que no aparece en la basket, sin work queue según A y B, o JPV vacío) o `NO PROCESADA` (la basket se cerró antes). Si el JPV no aparece en la basket, la fila se omite y el script sigue con la siguiente.
+- `resultados.csv`: estado de cada fila. `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (case owner distinto de `FX1213`, JPV que no aparece en la basket, sin work queue según A y B, o JPV vacío) o `NO PROCESADA` (la basket se cerró antes). Si el JPV no aparece en la basket, la fila se omite y el script sigue con la siguiente.
 - `error_fila_N.png`: captura de la ventana principal en la fila N, si falló.
 
 ## Pendiente antes de usar `DRY_RUN = False`
 
 
-- Cambiar la validación del case owner por igualdad exacta, con el locator del campo **Case owner** en la pestaña Work. Hoy busca `TSFX1213` como palabra completa dentro de todo el panel.
+- Cambiar la validación del case owner por igualdad exacta, con el locator del campo **Case owner** en la pestaña Work. Hoy busca `FX1213` como palabra completa dentro de todo el panel.
 - Confirmar los selectores `PLACEHOLDER` contra la app real.

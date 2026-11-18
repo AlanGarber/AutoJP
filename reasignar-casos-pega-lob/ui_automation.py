@@ -4,7 +4,7 @@ Reasigna casos de Pega a la work queue que corresponde a su LOB, a partir de un 
 
 Por cada fila:
   1. Hace click en el JPV (columna C, "ID") en la basket (popup). El caso se abre en la ventana principal.
-  2. Pestaña Work: si el case owner no es TSFX1213, la fila se saltea sin tocar el caso.
+  2. Pestaña Work: si el case owner no es FX1213, la fila se saltea sin tocar el caso.
   3. Actions > Reassign.
   4. Elige la work queue en el dropdown "Work Queue" según la columna A y, en el caso especial, la columna B
      (ver destino_para).
@@ -69,7 +69,7 @@ JPV_LINK_NTH = 2               # índice del link del JPV en la basket, según c
 POST_OPEN_CASE_PAUSE_MS = 2000 # espera a que el caso cargue en la ventana principal
 
 # --- Caso (ventana principal, dentro de iframes PegaGadget*) ---
-OWNER_EXPECTED = "TSFX1213"                                       # el case owner tiene que ser exactamente este valor
+OWNER_EXPECTED = "FX1213"                                       # el case owner tiene que ser exactamente este valor
 WORK_TAB = 'text="Work" >> visible=true'                          # pestaña Work del caso
 WORK_PANEL = "role=tabpanel[name='Work'] >> visible=true"         # contenido de Work: ahí figura el case owner
 ACTIONS_MENU = "role=button[name='Actions'] >> visible=true"
@@ -326,7 +326,7 @@ def reasignar_fila(main_page: Page, basket: Page, jpv: str, destino: str, dry_ru
     main_page.bring_to_front()
     main_page.wait_for_timeout(POST_OPEN_CASE_PAUSE_MS)
 
-    # 2. Case owner: debe ser TSFX1213
+    # 2. Case owner: debe ser FX1213
     # PROVISIONAL: busca el valor como palabra completa dentro del panel Work.
     # Cambiar por igualdad exacta cuando tengamos el locator del campo Case owner.
     clic(main_page, WORK_TAB, "pestaña Work")
