@@ -63,6 +63,11 @@ STEP_BY_STEP_OPTIONS = (
     "role=menuitem[name=/^Step By Step/i] >> visible=true",
     "role=button[name=/^Step By Step/i] >> visible=true",
 )
+REOPEN_BUTTON = "role=button[name=/^Reopen/i] >> visible=true"  # si aparece, el caso no se reasigna: se saltea
+MESSAGE_ATTACHED_OPTIONS = (  # último recurso si no aparece ninguna opción anterior
+    "role=menuitem[name=/^MessageAttached/i] >> visible=true",
+    "role=button[name=/^MessageAttached/i] >> visible=true",
+)
 PERFORM_RESEARCH_OPTION = "role=menuitem[name=/^Perform research/i] >> visible=true"  # opción que se usa si tampoco aparece Step By Step
 MENU_CHECK_MS = 2000                                # cuánto esperar a que aparezca una opción del menú Actions
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
@@ -233,6 +238,9 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
             raise SkipRow(f"asignado al bot {BOT_ID}")
         if not any(contiene_valor(owner, o) for o in OWNERS_ALLOWED):
             raise SkipRow(f"no se reasigna: el campo Work no dice {' ni '.join(OWNERS_ALLOWED)}")
+        if menu_option_visible(pega, REOPEN_BUTTON):
+            raise SkipRow("tiene el botón Reopen: no se reasigna")
+
 
         # 2) Actions. Solo para Miscellaneous y si aparece Change case type:
         #    Change case type > Amendment > Submit, y vuelve a abrir Actions.
@@ -259,9 +267,15 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
             if step_by_step:
                 paso = "Step By Step"
                 pega.locator(step_by_step).click()
-            else:
+            elif menu_option_visible(pega, PERFORM_RESEARCH_OPTION):
                 paso = "Perform research"
                 pega.locator(PERFORM_RESEARCH_OPTION).click()
+            else:
+                paso = "MessageAttached"
+                message = next((sel for sel in MESSAGE_ATTACHED_OPTIONS if menu_option_visible(pega, sel)), None)
+                if message is None:
+                    raise TimeoutError("no apareció Reassign, Step By Step, Perform research ni MessageAttached")
+                pega.locator(message).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
         paso = "Reassign"
         pega.locator(REASSIGN_OPTION).click()
