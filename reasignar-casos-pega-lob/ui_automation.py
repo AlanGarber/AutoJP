@@ -1,27 +1,28 @@
 #!/usr/bin/env python3
 """
-Reasigna casos de Pega a la basket que corresponde a su LOB, a partir de un XLSX (una pasada por fila).
+Reasigna casos de Pega a la work queue que corresponde a su LOB, a partir de un XLSX (una pasada por fila).
 
 Por cada fila:
-  1. Busca el JPV (columna C, "ID") en la search bar de la basket. La basket es un popup.
-  2. Hace click en el JPV: el caso se abre en la ventana principal de Pega, dentro de iframes PegaGadget*.
-  3. Hace click en Reassign.
-  4. Elige la basket de destino según la LOB (columna A, "Comments"): Corp&FI -> FX12, Retail -> FX13.
-  5. Confirma la reasignación. (Pendiente: el diálogo de Reassign todavía no está mapeado.)
+  1. Hace click en el JPV (columna C, "ID") en la basket (popup). El caso se abre en la ventana principal.
+  2. Pestaña Work: si el case owner no es TSFX1213, la fila se saltea sin tocar el caso.
+  3. Actions > Reassign.
+  4. Elige la work queue según la LOB (columna A, "Comments") en el dropdown "Work Queue".
+  5. Submit y Close. En DRY_RUN, en cambio, Close y Discard (no se guarda nada).
 
-Antes de la primera fila, vos hacés el login en la ventana principal y abrís la basket
-(popup). Después volvés a la terminal y presionás Enter.
+Antes de la primera fila, vos hacés el login en la ventana principal, abrís la basket
+desde "View Queue for" (popup) y después volvés a la terminal y presionás Enter.
 
 Uso:
     python ui_automation.py datos.xlsx
 
-Por defecto corre con DRY_RUN = True: abre el caso, hace click en Reassign y cancela sin confirmar.
-Genera resultados.csv y una captura (error_fila_N.png) por cada fila que falle.
+Por defecto corre con DRY_RUN = True. Genera resultados.csv y una captura (error_fila_N.png)
+por cada fila que falle.
 """
 
 import csv
 import logging
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -47,25 +48,32 @@ XLSX_SHEET = None              # None = primera hoja; o el nombre de la hoja, po
 XLSX_HAS_HEADER = True         # True: la primera fila es encabezado y se saltea
 COL_LOB = "A"                  # columna "Comments": LOB
 COL_JPV = "C"                  # columna "ID": JPV (ID del caso)
-MAPA_LOB = {                   # LOB (texto exacto del XLSX) -> basket de destino
-    "Corp&FI": "FX12",
-    "Retail": "FX13",
+MAPA_LOB = {                   # LOB (texto exacto del XLSX) -> value de la work queue en el dropdown
+    "Corp&FI": "WDPCTSTWRKFX12",
+    "Retail": "WDPCTSTWRKFX13",
 }
 
 # --- Basket (popup) ---
-BASKET_SEARCH_INPUT = "role=textbox[name='Search'] >> visible=true"  # PLACEHOLDER: search bar de la basket
-CASE_LINK = "role=link[name='{jpv}'] >> visible=true"                # PLACEHOLDER: link del JPV en la grilla
-POST_SEARCH_PAUSE_MS = 2000    # espera después de buscar, antes de clickear el JPV
+JPV_LINK_NTH = 2               # índice del link del JPV en la basket, según codegen
+POST_OPEN_CASE_PAUSE_MS = 2000 # espera a que el caso cargue en la ventana principal
 
 # --- Caso (ventana principal, dentro de iframes PegaGadget*) ---
-REASSIGN_BUTTON = "role=button[name='Reassign'] >> visible=true"    # PLACEHOLDER: confirmar si es botón o menuitem
-REASSIGN_TIMEOUT_MS = 15000    # cuánto esperar a que aparezca Reassign en el caso
-CANCEL_REASSIGN = "role=button[name='Cancel'] >> visible=true"      # PLACEHOLDER: cierra el diálogo en DRY_RUN
+OWNER_EXPECTED = "TSFX1213"                                       # el case owner tiene que ser exactamente este valor
+WORK_TAB = 'text="Work" >> visible=true'                          # pestaña Work del caso
+WORK_PANEL = "role=tabpanel[name='Work'] >> visible=true"         # contenido de Work: ahí figura el case owner
+ACTIONS_MENU = "role=button[name='Actions'] >> visible=true"
+REASSIGN_OPTION = "role=menuitem[name='Reassign'] >> visible=true"
+WORK_QUEUE_SELECTOR = "label=Work Queue"                          # dropdown de la work queue destino
+SUBMIT_BUTTON = "role=button[name='Submit'] >> visible=true"
+CLOSE_BUTTON = "role=button[name='Close'] >> visible=true"
+DISCARD_BUTTON = "role=button[name='Discard'] >> visible=true"    # confirma el descarte en DRY_RUN
+PEGA_TIMEOUT_MS = 15000        # cuánto buscar un elemento dentro de los iframes de Pega
 
 # --- Ejecución ---
-DRY_RUN = True                 # True: abre Reassign y cancela sin confirmar. False: reasigna de verdad.
+DRY_RUN = True                 # True: hace todo hasta Close y Discard, sin guardar. False: reasigna de verdad.
 BROWSER_CHANNEL = "msedge"     # "chrome" o "msedge": navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False               # False: ves la automatización corriendo
+STEP_PAUSE_MS = 500            # pausa breve entre pasos
 PAUSE_BETWEEN_ROWS_MS = 1500   # pausa entre una fila y la siguiente
 SALIDA_CSV = "resultados.csv"
 
@@ -81,6 +89,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-7s %(m
 log = logging.getLogger("reasignar_pega")
 
 
+class SkipRow(Exception):
+    """La fila no se procesa a propósito (no es un error)."""
+
+
 def to_text(value) -> str:
     """Convierte una celda de Excel a texto. Los enteros no quedan con '.0'."""
     if value is None:
@@ -88,6 +100,11 @@ def to_text(value) -> str:
     if isinstance(value, float) and value.is_integer():
         value = int(value)
     return str(value).strip()
+
+
+def contiene_valor(texto: str, valor: str) -> bool:
+    """True si valor aparece como palabra completa: FX1213 no es FX12."""
+    return re.search(rf"(?<![A-Za-z0-9]){re.escape(valor)}(?![A-Za-z0-9])", texto) is not None
 
 
 def read_rows(path: Path):
@@ -113,17 +130,17 @@ def find_basket(context: BrowserContext, main_page: Page) -> Page:
     """La basket es el popup abierto desde la ventana principal de Pega."""
     popups = [p for p in context.pages if p is not main_page and not p.is_closed()]
     if not popups:
-        raise RuntimeError("No encontré la basket: abrila como popup desde Pega y volvé a intentar.")
+        raise RuntimeError("No encontré la basket: abrila como popup desde View Queue for y volvé a intentar.")
     return popups[-1]
 
 
-def buscar_frame(page: Page, locator: str, timeout_ms: int):
-    """Busca el iframe de Pega que contiene el locator. Pega carga el caso dentro de PegaGadget*."""
+def buscar_frame(page: Page, selector: str, timeout_ms: int):
+    """Busca el iframe de Pega que contiene el selector. Pega cambia el número del iframe, así que no se fija."""
     deadline = time.monotonic() + timeout_ms / 1000
     while True:
         for frame in page.frames:
             try:
-                if frame.locator(locator).count() > 0:
+                if frame.locator(selector).count() > 0:
                     return frame
             except Exception:
                 continue
@@ -132,48 +149,52 @@ def buscar_frame(page: Page, locator: str, timeout_ms: int):
         page.wait_for_timeout(500)
 
 
-def completar_reasignacion(main_page: Page, destino: str) -> None:
-    """PENDIENTE: el diálogo de Reassign todavía no está mapeado.
-
-    Falta: el campo donde se elige la basket destino (dropdown, búsqueda o lista)
-    y el botón de confirmación. Hasta completarlo, usar DRY_RUN = True.
-    """
-    raise NotImplementedError("Falta completar el diálogo de Reassign (completar_reasignacion)")
-
-
-def cancelar_reasignacion(main_page: Page) -> None:
-    """Cierra el diálogo de Reassign sin confirmar."""
-    frame = buscar_frame(main_page, CANCEL_REASSIGN, 3000)
-    if frame is not None:
-        frame.locator(CANCEL_REASSIGN).click()
-    else:
-        main_page.keyboard.press("Escape")
+def clic(page: Page, selector: str, paso: str) -> None:
+    """Hace click en el elemento dentro del iframe de Pega que lo contiene."""
+    frame = buscar_frame(page, selector, PEGA_TIMEOUT_MS)
+    if frame is None:
+        raise RuntimeError(f"no apareció {paso}")
+    frame.locator(selector).click()
+    page.wait_for_timeout(STEP_PAUSE_MS)
 
 
 def reasignar_fila(main_page: Page, basket: Page, jpv: str, destino: str, dry_run: bool):
-    """Procesa una fila. Devuelve (estado, detalle)."""
-    # 1. Buscar el JPV en la basket
+    """Procesa una fila. Devuelve (estado, detalle). Lanza SkipRow si la fila no corresponde."""
+    # 1. Abrir el caso desde la basket: se carga en la ventana principal
     basket.bring_to_front()
-    search = basket.locator(BASKET_SEARCH_INPUT)
-    search.fill(jpv)
-    search.press("Enter")
-    basket.wait_for_timeout(POST_SEARCH_PAUSE_MS)
-
-    # 2. Abrir el caso: se carga en la ventana principal
-    basket.locator(CASE_LINK.format(jpv=jpv)).click()
+    basket.get_by_text(jpv, exact=True).nth(JPV_LINK_NTH).click()
     main_page.bring_to_front()
+    main_page.wait_for_timeout(POST_OPEN_CASE_PAUSE_MS)
 
-    # 3. Reassign dentro del iframe del caso
-    frame = buscar_frame(main_page, REASSIGN_BUTTON, REASSIGN_TIMEOUT_MS)
+    # 2. Case owner: debe ser TSFX1213
+    # PROVISIONAL: busca el valor como palabra completa dentro del panel Work.
+    # Cambiar por igualdad exacta cuando tengamos el locator del campo Case owner.
+    clic(main_page, WORK_TAB, "pestaña Work")
+    frame = buscar_frame(main_page, WORK_PANEL, PEGA_TIMEOUT_MS)
     if frame is None:
-        raise RuntimeError("No apareció el botón Reassign en el caso")
-    frame.locator(REASSIGN_BUTTON).click()
+        raise RuntimeError("no apareció el panel Work")
+    owner = frame.locator(WORK_PANEL).inner_text()
+    if not contiene_valor(owner, OWNER_EXPECTED):
+        raise SkipRow(f"el case owner no es {OWNER_EXPECTED}")
 
-    # 4. Basket destino y confirmación
+    # 3. Actions > Reassign
+    clic(main_page, ACTIONS_MENU, "botón Actions")
+    clic(main_page, REASSIGN_OPTION, "opción Reassign")
+
+    # 4. Work queue destino según LOB
+    frame = buscar_frame(main_page, WORK_QUEUE_SELECTOR, PEGA_TIMEOUT_MS)
+    if frame is None:
+        raise RuntimeError("no apareció el dropdown Work Queue")
+    frame.locator(WORK_QUEUE_SELECTOR).select_option(value=destino)
+    main_page.wait_for_timeout(STEP_PAUSE_MS)
+
+    # 5. Guardar y cerrar (o descartar en DRY_RUN)
     if dry_run:
-        cancelar_reasignacion(main_page)
+        clic(main_page, CLOSE_BUTTON, "botón Close")
+        clic(main_page, DISCARD_BUTTON, "botón Discard")
         return "SIMULADO", f"Destino {destino}"
-    completar_reasignacion(main_page, destino)
+    clic(main_page, SUBMIT_BUTTON, "botón Submit")
+    clic(main_page, CLOSE_BUTTON, "botón Close")
     return "OK", f"Reasignado a {destino}"
 
 
@@ -197,7 +218,7 @@ def main():
         main_page = context.new_page()
         main_page.goto(APP_URL)
 
-        input("Iniciá sesión en Pega, abrí la basket (popup) y después presioná Enter acá... ")
+        input("Iniciá sesión, abrí la basket desde 'View Queue for' (popup) y después presioná Enter acá... ")
         basket = find_basket(context, main_page)
 
         for idx, (nro, lob, jpv) in enumerate(rows):
@@ -213,12 +234,15 @@ def main():
                 imprimir(nro, lob, jpv, "OMITIDA", "JPV vacío")
                 continue
             if destino is None:
-                resultados.append((nro, lob, jpv, "", "OMITIDA", f"LOB sin basket: '{lob}'"))
-                imprimir(nro, lob, jpv, "OMITIDA", f"LOB sin basket: '{lob}'")
+                detalle = f"LOB sin work queue: '{lob}'"
+                resultados.append((nro, lob, jpv, "", "OMITIDA", detalle))
+                imprimir(nro, lob, jpv, "OMITIDA", detalle)
                 continue
 
             try:
                 estado, detalle = reasignar_fila(main_page, basket, jpv, destino, DRY_RUN)
+            except SkipRow as e:
+                estado, detalle = "OMITIDA", str(e)
             except Exception as e:
                 estado, detalle = "ERROR", str(e).splitlines()[0][:200]
                 try:
@@ -234,7 +258,7 @@ def main():
 
     with open(SALIDA_CSV, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
-        w.writerow(["fila_excel", "LOB", "JPV", "basket_destino", "estado", "detalle"])
+        w.writerow(["fila_excel", "LOB", "JPV", "work_queue_destino", "estado", "detalle"])
         w.writerows(resultados)
 
     total = {}
