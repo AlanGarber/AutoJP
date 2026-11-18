@@ -82,7 +82,7 @@ python ui_automation.py datos.xlsx
 1. Se abre el navegador en Pega y el script hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). Con `AUTO_SSO_CLICKS = False` los hacés a mano.
 2. Completá usuario, contraseña y MFA en el navegador. Cuando se vea Pega, volvé a la terminal y presioná Enter.
 3. El script abre la basket solo (**My teams** > **View Queue for**). Con `AUTO_ABRIR_BASKET = False` la abrís a mano desde **View Queue for**.
-4. El script procesa cada fila.
+4. El script maximiza la basket y procesa cada fila. Si el JPV no está a la vista en la grilla, la busca bajando con la rueda del mouse y, si no aparece, desde el inicio. Si tampoco aparece, la fila se omite.
 
 Al terminar:
 - `resultados.csv`: estado de cada fila. `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (case owner distinto de `TSFX1213`, JPV que no aparece en la basket, sin work queue según A y B, o JPV vacío) o `NO PROCESADA` (la basket se cerró antes). Si el JPV no aparece en la basket, la fila se omite y el script sigue con la siguiente.

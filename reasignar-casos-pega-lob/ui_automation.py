@@ -95,7 +95,9 @@ BASKET_QUEUE_VALUE = "WDPCTSXWRKFX1213"               # basket a abrir (confirma
 DRY_RUN = True                 # True: hace todo hasta Close y Discard, sin guardar. False: reasigna de verdad.
 BROWSER_CHANNEL = "msedge"     # "chrome" o "msedge": navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False               # False: ves la automatización corriendo
-MAXIMIZAR_VENTANA = True       # True: abre el navegador maximizado, para que Pega muestre todos los dropdowns
+MAXIMIZAR_VENTANA = True       # True: maximiza el navegador y la basket, para que Pega muestre todos los dropdowns
+SCROLL_PASO_PX = 400           # cuánto baja la grilla de la basket en cada paso al buscar un JPV
+SCROLL_MAX_PASOS = 60          # máximo de pasos hacia abajo por pasada (si no aparece, se omite la fila)
 STEP_PAUSE_MS = 500            # pausa breve entre pasos
 PAUSE_BETWEEN_ROWS_MS = 1500   # pausa entre una fila y la siguiente
 SALIDA_CSV = "resultados.csv"
@@ -155,6 +157,55 @@ def diagnosticar_dropdowns(page: Page) -> str:
     return "\n".join(partes) or "  ningún dropdown (select) en ningún frame"
 
 
+def maximizar_ventana(page: Page) -> None:
+    """Maximiza la ventana del navegador donde está la página (Chromium, por CDP)."""
+    if not MAXIMIZAR_VENTANA:
+        return
+    try:
+        cdp = page.context.new_cdp_session(page)
+        window = cdp.send("Browser.getWindowForTarget")
+        cdp.send(
+            "Browser.setWindowBounds",
+            {"windowId": window["windowId"], "bounds": {"windowState": "maximized"}},
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("No pude maximizar la ventana (%s). Sigo igual.", exc)
+
+
+def mover_mouse_al_centro(page: Page) -> None:
+    """Pone el mouse en el centro de la página, para que la rueda baje la grilla."""
+    ancho, alto = page.evaluate("() => [window.innerWidth, window.innerHeight]")
+    page.mouse.move(ancho / 2, alto / 2)
+
+
+def buscar_jpv_en_basket(basket: Page, jpv: str):
+    """Busca el link del JPV en la grilla de la basket, bajando con la rueda si hace falta.
+
+    Primero busca desde la posición actual y después desde el inicio. Devuelve el locator
+    del link o None si no aparece.
+    """
+    link = basket.get_by_text(jpv, exact=True)
+
+    def link_visible():
+        return link.count() > JPV_LINK_NTH and link.nth(JPV_LINK_NTH).is_visible()
+
+    for pasada in range(2):
+        if pasada == 1:
+            mover_mouse_al_centro(basket)
+            for _ in range(3):
+                basket.mouse.wheel(0, -SCROLL_PASO_PX * 20)
+                basket.wait_for_timeout(200)
+        for _ in range(SCROLL_MAX_PASOS):
+            if link_visible():
+                return link.nth(JPV_LINK_NTH)
+            mover_mouse_al_centro(basket)
+            basket.mouse.wheel(0, SCROLL_PASO_PX)
+            basket.wait_for_timeout(300)
+    if link_visible():
+        return link.nth(JPV_LINK_NTH)
+    return None
+
+
 def abrir_basket(main_page: Page) -> Page:
     """My teams > View Queue for. La basket se abre como popup y se devuelve esa página."""
     main_page.get_by_role("menuitem", name=re.compile(BASKET_MENU_ITEM_NAME)).click()
@@ -179,6 +230,7 @@ def abrir_basket(main_page: Page) -> Page:
             frame.locator(selector).select_option(value=BASKET_QUEUE_VALUE)
     basket = popup_info.value
     basket.wait_for_load_state()
+    maximizar_ventana(basket)
     return basket
 
 
@@ -261,10 +313,10 @@ def reasignar_fila(main_page: Page, basket: Page, jpv: str, destino: str, dry_ru
     """Procesa una fila. Devuelve (estado, detalle). Lanza SkipRow si la fila no corresponde."""
     # 1. Abrir el caso desde la basket: se carga en la ventana principal
     basket.bring_to_front()
-    link_jpv = basket.get_by_text(jpv, exact=True)
-    if link_jpv.count() <= JPV_LINK_NTH:
-        raise SkipRow("el JPV no aparece en la basket")
-    link_jpv.nth(JPV_LINK_NTH).click()
+    link_jpv = buscar_jpv_en_basket(basket, jpv)
+    if link_jpv is None:
+        raise SkipRow("el JPV no aparece en la basket, ni bajando ni desde el inicio")
+    link_jpv.click()
     main_page.bring_to_front()
     main_page.wait_for_timeout(POST_OPEN_CASE_PAUSE_MS)
 
@@ -331,6 +383,7 @@ def main():
         else:
             input("Completá usuario, contraseña y MFA, abrí la basket desde 'View Queue for' (popup) y después presioná Enter acá... ")
             basket = find_basket(context, main_page)
+            maximizar_ventana(basket)
 
         for idx, (nro, lob, col_b, jpv) in enumerate(rows):
             if basket.is_closed():
