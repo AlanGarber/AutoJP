@@ -89,7 +89,7 @@ Copiá el comando completo, pegalo en la terminal y apretá Enter.
 
 1. Se abre el navegador con la aplicación. El script hace solo los clicks de SSO.
 2. Completá usuario, contraseña y MFA en el navegador.
-3. Volvé a la terminal y apretá Enter para empezar.
+3. No hace falta apretar nada en la terminal: el script arranca solo cuando aparece la búsqueda de PRPC.
 
 ## Paso 6: Esperar
 

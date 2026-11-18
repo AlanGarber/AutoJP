@@ -99,7 +99,7 @@ NAME_ALIASES = {
 BROWSER_CHANNEL = "msedge"  # "chrome" o "msedge": usa el navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False        # False: ves la automatización corriendo
 AUTO_SSO_CLICKS = True  # True: el script hace click en "Login with SSO" y en "JPMorgan Chase (Default)"
-LOGIN_PAUSE = True      # True: pausa para completar usuario, contraseña y MFA antes de empezar
+LOGIN_TIMEOUT_MS = 120000  # cuánto esperar a que termines usuario, contraseña y MFA (la barra de búsqueda aparece al terminar)
 STEP_PAUSE_MS = 300     # pausa breve entre pasos
 PAUSE_BETWEEN_ROWS_MS = 1500  # pausa mínima entre una fila y la siguiente
 POST_SEARCH_PAUSE_MS = 2000   # espera después de buscar el JPV, antes de tocar el caso (Work, Actions)
@@ -358,8 +358,8 @@ def main() -> None:
             if AUTO_SSO_CLICKS:
                 login_sso(page)
 
-            if LOGIN_PAUSE:
-                input("Completá usuario, contraseña y MFA en el navegador y presioná Enter para empezar... ")
+            print("Completá usuario, contraseña y MFA en el navegador. El script arranca solo cuando aparezca la búsqueda.")
+            page.locator(SEARCH_INPUT).wait_for(state="visible", timeout=LOGIN_TIMEOUT_MS)
 
             detenido = False
             for row_no, assignee, jpv, team, case_type in rows:

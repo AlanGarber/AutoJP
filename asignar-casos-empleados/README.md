@@ -74,7 +74,7 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 **Archivo y navegador**
 - `APP_URL`: la URL de la app. No la pongas en el script: usá `config_local.py` (ver abajo).
 - `AUTO_SSO_CLICKS`: `True` hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). `False` si preferís hacerlos a mano.
-- `LOGIN_PAUSE`: `True` pausa después del login para que completes usuario, contraseña y MFA.
+- `LOGIN_TIMEOUT_MS`: cuánto espera el script a que completes usuario, contraseña y MFA. Al terminar aparece la búsqueda y el script arranca solo.
 - `XLSX_SHEET`: `None` usa la primera hoja. Si el archivo tiene varias, poné el nombre, por ejemplo `"Hoja1"`.
 - `XLSX_HAS_HEADER`: `True` si la primera fila es de encabezado (se saltea).
 - `COL_ASSIGNEE`, `COL_JPV`, `COL_TEAM` y `COL_CASE_TYPE`: letras de las columnas. Por defecto `A`, `B`, `C` y `D`.
