@@ -31,6 +31,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 from playwright.sync_api import BrowserContext, Page, sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 # =====================================================================
 # CONFIGURACIÓN: completar con los selectores reales de Pega.
@@ -160,15 +161,22 @@ def abrir_basket(main_page: Page) -> Page:
     main_page.wait_for_timeout(STEP_PAUSE_MS)
     selector = f'internal:label="{BASKET_QUEUE_LABEL}"i'
     with main_page.expect_popup() as popup_info:
-        frame = buscar_frame(main_page, selector, PEGA_TIMEOUT_MS)
-        if frame is None:
-            main_page.screenshot(path="error_abrir_basket.png")
-            raise RuntimeError(
-                f"no apareció el dropdown '{BASKET_QUEUE_LABEL}'. Dropdowns encontrados:\n"
-                + diagnosticar_dropdowns(main_page)
-                + "\nCaptura: error_abrir_basket.png"
-            )
-        frame.locator(selector).select_option(value=BASKET_QUEUE_VALUE)
+        # Primero el mismo camino del codegen: el iframe PegaGadget1Ifr.
+        try:
+            main_page.locator('iframe[name="PegaGadget1Ifr"]').content_frame.get_by_label(
+                BASKET_QUEUE_LABEL
+            ).select_option(value=BASKET_QUEUE_VALUE, timeout=PEGA_TIMEOUT_MS)
+        except PlaywrightTimeoutError:
+            # Si Pega cambió el número del iframe, busca el dropdown en todos los frames.
+            frame = buscar_frame(main_page, selector, PEGA_TIMEOUT_MS)
+            if frame is None:
+                main_page.screenshot(path="error_abrir_basket.png")
+                raise RuntimeError(
+                    f"no apareció el dropdown '{BASKET_QUEUE_LABEL}'. Dropdowns encontrados:\n"
+                    + diagnosticar_dropdowns(main_page)
+                    + "\nCaptura: error_abrir_basket.png"
+                )
+            frame.locator(selector).select_option(value=BASKET_QUEUE_VALUE)
     basket = popup_info.value
     basket.wait_for_load_state()
     return basket
