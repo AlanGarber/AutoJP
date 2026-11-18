@@ -102,11 +102,17 @@ ZOOM_BASKET = 0.5             # zoom aplicado a la basket (0.5 = 50%, más filas
 SCROLL_PASO_PX = 150           # cuánto baja la grilla en cada paso chico al buscar un JPV
 SCROLL_ESPERA_MS = 300         # pausa después de cada paso de scroll, para que Pega renderice las filas
 SCROLL_MAX_PASOS = 400         # tope de seguridad de pasos por página (el recorrido termina solo al llegar al final)
-MAX_PAGINAS_BASKET = 20        # si la grilla pagina (Next), cuántas páginas revisa como máximo
-SIGUIENTE_PAGINA_SELECTORES = (  # botones de página siguiente, probados en orden
+MAX_PAGINAS_BASKET = 50        # tope de seguridad de páginas por búsqueda
+PAGINA_ESPERA_MS = 1000        # pausa después de cambiar de página, para que Pega cargue la grilla
+SIGUIENTE_PAGINA_SELECTORES = (  # botón "página siguiente" de la grilla, probados en orden
     'role=button[name=/^(next|siguiente)/i] >> visible=true',
     '[aria-label*="Next" i] >> visible=true',
     '[title*="Next" i] >> visible=true',
+)
+ANTERIOR_PAGINA_SELECTORES = (  # botón "página anterior", para volver a la página 1
+    'role=button[name=/^(previous|prev|anterior)/i] >> visible=true',
+    '[aria-label*="Previous" i] >> visible=true',
+    '[title*="Previous" i] >> visible=true',
 )
 STEP_PAUSE_MS = 500            # pausa breve entre pasos
 PAUSE_BETWEEN_ROWS_MS = 1500   # pausa entre una fila y la siguiente
@@ -256,40 +262,82 @@ def desplazar_todo(basket: Page, pixeles=None) -> float:
     return movido
 
 
+def boton_pagina(basket: Page, selectores):
+    """Devuelve el primer botón de paginación visible y habilitado, o None.
+
+    Busca en la página de la basket y en sus iframes. Un botón deshabilitado no cuenta.
+    """
+    for frame in basket.frames:
+        for selector in selectores:
+            try:
+                botones = frame.locator(selector)
+                for indice in range(botones.count()):
+                    boton = botones.nth(indice)
+                    clase = (boton.get_attribute("class") or "").lower()
+                    deshabilitado = (
+                        boton.get_attribute("disabled") is not None
+                        or boton.get_attribute("aria-disabled") == "true"
+                        or "disabled" in clase
+                    )
+                    if not deshabilitado:
+                        return boton
+            except Exception:  # noqa: BLE001
+                continue
+    return None
+
+
 def ir_a_siguiente_pagina(basket: Page) -> bool:
-    """Si la grilla pagina, hace clic en Next. Devuelve True si encontró y pulsó el botón."""
-    for selector in SIGUIENTE_PAGINA_SELECTORES:
-        boton = basket.locator(selector)
-        if boton.count() > 0:
-            boton.first.click()
-            basket.wait_for_timeout(STEP_PAUSE_MS)
-            return True
-    return False
+    """Pasa a la página siguiente de la grilla. Devuelve False si ya es la última."""
+    boton = boton_pagina(basket, SIGUIENTE_PAGINA_SELECTORES)
+    if boton is None:
+        return False
+    boton.click()
+    basket.wait_for_timeout(PAGINA_ESPERA_MS)
+    return True
+
+
+def ir_a_primera_pagina(basket: Page) -> None:
+    """Vuelve a la página 1 yendo hacia atrás hasta que no haya botón anterior habilitado."""
+    for _ in range(MAX_PAGINAS_BASKET):
+        boton = boton_pagina(basket, ANTERIOR_PAGINA_SELECTORES)
+        if boton is None:
+            return
+        boton.click()
+        basket.wait_for_timeout(PAGINA_ESPERA_MS)
+
+
+def recorrer_pagina_actual(basket: Page, jpv: str):
+    """Recorre la página actual de la grilla de arriba hacia abajo, en pasos chicos.
+
+    Después de cada paso revisa si el JPV está a la vista. Para cuando la grilla ya no se mueve.
+    """
+    desplazar_todo(basket, None)
+    basket.wait_for_timeout(SCROLL_ESPERA_MS)
+    for _ in range(SCROLL_MAX_PASOS):
+        link = link_o_traerlo(basket, jpv)
+        if link is not None:
+            return link
+        movido = desplazar_todo(basket, SCROLL_PASO_PX)
+        basket.wait_for_timeout(SCROLL_ESPERA_MS)
+        if movido == 0:
+            break  # llegó al final de la grilla de esta página
+    return None
 
 
 def buscar_jpv_en_basket(basket: Page, jpv: str):
-    """Busca el link visible del JPV en la grilla de la basket.
+    """Busca el link visible del JPV en toda la grilla de la basket.
 
-    Por cada página: lleva la grilla al inicio y baja en pasos chicos (SCROLL_PASO_PX). Después
-    de cada paso revisa si el link del JPV está a la vista. Sigue hasta que la grilla ya no se
-    mueve, es decir, hasta cubrir todo el scroll. Si el texto del JPV existe pero no está a la
-    vista, lo trae con scroll_into_view. Si no aparece y la grilla tiene botón Next, pasa a la
-    página siguiente. Devuelve el locator del link o None.
+    Cada búsqueda empieza en la página 1. Recorre cada página de arriba hacia abajo y, si no
+    está, pasa a la página siguiente, hasta la última. Devuelve el locator del link o None.
     """
+    ir_a_primera_pagina(basket)
     for _ in range(MAX_PAGINAS_BASKET):
-        desplazar_todo(basket, None)
-        basket.wait_for_timeout(SCROLL_ESPERA_MS)
-        for _ in range(SCROLL_MAX_PASOS):
-            link = link_o_traerlo(basket, jpv)
-            if link is not None:
-                return link
-            movido = desplazar_todo(basket, SCROLL_PASO_PX)
-            basket.wait_for_timeout(SCROLL_ESPERA_MS)
-            if movido == 0:
-                break  # llegó al final de la grilla: ya revisó todo lo visible en este recorrido
+        link = recorrer_pagina_actual(basket, jpv)
+        if link is not None:
+            return link
         if not ir_a_siguiente_pagina(basket):
             break
-    return link_jpv_visible(basket, jpv)
+    return None
 
 
 def link_o_traerlo(basket: Page, jpv: str):
@@ -474,8 +522,8 @@ def reasignar_fila(main_page: Page, basket: Page, jpv: str, destino: str, dry_ru
     if link_jpv is None:
         diagnosticar_basket(basket, jpv)
         raise SkipRow(
-            "el JPV no aparece visible en la basket, ni bajando, ni desde el inicio, ni en las "
-            "páginas siguientes. Diagnóstico en diagnostico_basket.txt"
+            "el JPV no aparece visible en la basket, en ninguna página de la grilla. "
+            "Diagnóstico en diagnostico_basket.txt"
         )
     link_jpv.click()
     main_page.bring_to_front()
