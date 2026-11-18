@@ -228,13 +228,32 @@ def desplazar_grillas(page: Page, pixeles=None) -> float:
 def link_jpv_visible(basket: Page, jpv: str):
     """Devuelve el link visible del JPV en la basket, o None si no hay ninguno a la vista.
 
-    Prefiere el link con ese nombre. Si no lo hay, usa el texto exacto visible.
+    Prefiere el link con ese nombre. Si no lo hay, usa el texto exacto visible. Busca en la
+    página de la basket y en todos sus iframes, porque la grilla puede estar dentro de uno.
     """
-    for selector in (f'role=link[name="{jpv}"s] >> visible=true', f'text="{jpv}" >> visible=true'):
-        candidatos = basket.locator(selector)
-        if candidatos.count() > 0:
-            return candidatos.first
+    for frame in basket.frames:
+        for selector in (f'role=link[name="{jpv}"s] >> visible=true', f'text="{jpv}" >> visible=true'):
+            try:
+                candidatos = frame.locator(selector)
+                if candidatos.count() > 0:
+                    return candidatos.first
+            except Exception:  # noqa: BLE001 - un frame que se cerró o cambió no corta la búsqueda
+                continue
     return None
+
+
+def desplazar_todo(basket: Page, pixeles=None) -> float:
+    """Aplica desplazar_grillas en la página de la basket y en todos sus iframes.
+
+    Devuelve el movimiento total. Si devuelve 0, ninguna parte de la basket se movió.
+    """
+    movido = 0.0
+    for frame in basket.frames:
+        try:
+            movido += desplazar_grillas(frame, pixeles)
+        except Exception:  # noqa: BLE001
+            continue
+    return movido
 
 
 def ir_a_siguiente_pagina(basket: Page) -> bool:
@@ -258,13 +277,13 @@ def buscar_jpv_en_basket(basket: Page, jpv: str):
     página siguiente. Devuelve el locator del link o None.
     """
     for _ in range(MAX_PAGINAS_BASKET):
-        desplazar_grillas(basket, None)
+        desplazar_todo(basket, None)
         basket.wait_for_timeout(SCROLL_ESPERA_MS)
         for _ in range(SCROLL_MAX_PASOS):
             link = link_o_traerlo(basket, jpv)
             if link is not None:
                 return link
-            movido = desplazar_grillas(basket, SCROLL_PASO_PX)
+            movido = desplazar_todo(basket, SCROLL_PASO_PX)
             basket.wait_for_timeout(SCROLL_ESPERA_MS)
             if movido == 0:
                 break  # llegó al final de la grilla: ya revisó todo lo visible en este recorrido
@@ -278,13 +297,17 @@ def link_o_traerlo(basket: Page, jpv: str):
     link = link_jpv_visible(basket, jpv)
     if link is not None:
         return link
-    texto = basket.get_by_text(jpv, exact=True)
-    if texto.count() > 0:
+    for frame in basket.frames:
         try:
-            texto.first.scroll_into_view_if_needed(timeout=PEGA_TIMEOUT_MS)
-        except PlaywrightTimeoutError:
-            pass
-        return link_jpv_visible(basket, jpv)
+            texto = frame.get_by_text(jpv, exact=True)
+            if texto.count() > 0:
+                try:
+                    texto.first.scroll_into_view_if_needed(timeout=PEGA_TIMEOUT_MS)
+                except PlaywrightTimeoutError:
+                    pass
+                return link_jpv_visible(basket, jpv)
+        except Exception:  # noqa: BLE001
+            continue
     return None
 
 
@@ -324,6 +347,14 @@ def diagnosticar_basket(basket: Page, jpv: str) -> str:
         "Contenedores con scroll:",
         *[f"  {c}" for c in info["contenedores"]],
     ]
+    lineas.append(f"Frames de la basket: {len(basket.frames)}")
+    for indice, frame in enumerate(basket.frames):
+        try:
+            en_frame = frame.get_by_text(jpv, exact=True).count()
+            filas_frame = frame.evaluate("() => document.querySelectorAll('[role=row], tr').length")
+            lineas.append(f"  frame {indice} (nombre '{frame.name}'): JPV en texto={en_frame}, filas={filas_frame}")
+        except Exception as error:  # noqa: BLE001
+            lineas.append(f"  frame {indice}: no se pudo leer ({type(error).__name__})")
     texto = "\n".join(lineas)
     with open("diagnostico_basket.txt", "w", encoding="utf-8") as archivo:
         archivo.write(texto + "\n")
