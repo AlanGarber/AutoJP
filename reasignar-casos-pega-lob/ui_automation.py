@@ -6,7 +6,8 @@ Por cada fila:
   1. Hace click en el JPV (columna C, "ID") en la basket (popup). El caso se abre en la ventana principal.
   2. Pestaña Work: si el case owner no es TSFX1213, la fila se saltea sin tocar el caso.
   3. Actions > Reassign.
-  4. Elige la work queue según la LOB (columna A, "Comments") en el dropdown "Work Queue".
+  4. Elige la work queue en el dropdown "Work Queue" según la columna A y, en el caso especial, la columna B
+     (ver destino_para).
   5. Submit y Close. En DRY_RUN, en cambio, Close y Discard (no se guarda nada).
 
 Antes de la primera fila, vos hacés el login en la ventana principal, abrís la basket
@@ -47,10 +48,17 @@ except ImportError:
 XLSX_SHEET = None              # None = primera hoja; o el nombre de la hoja, por ejemplo "Hoja1"
 XLSX_HAS_HEADER = True         # True: la primera fila es encabezado y se saltea
 COL_LOB = "A"                  # columna "Comments": LOB
+COL_B = "B"                    # columna B: se usa solo en el caso especial
 COL_JPV = "C"                  # columna "ID": JPV (ID del caso)
-MAPA_LOB = {                   # LOB (texto exacto del XLSX) -> value de la work queue en el dropdown
+MAPA_LOB = {                   # LOB (columna A) -> value de la work queue en el dropdown
     "Corp&FI": "WDPCTSTWRKFX12",
     "Retail": "WDPCTSTWRKFX13",
+}
+# Caso especial: se cumplen las dos condiciones a la vez (A y B) -> work queue destino.
+CASO_ESPECIAL = {
+    "lob": "To check",
+    "col_b": "FX Retail Inv",
+    "destino": "WDPCTSTWRKFX13",  # TSFX13
 }
 
 # --- Basket (popup) ---
@@ -107,20 +115,40 @@ def contiene_valor(texto: str, valor: str) -> bool:
     return re.search(rf"(?<![A-Za-z0-9]){re.escape(valor)}(?![A-Za-z0-9])", texto) is not None
 
 
+def normalizar(texto: str) -> str:
+    """Compara textos sin distinguir mayúsculas ni espacios de más."""
+    return " ".join(texto.split()).casefold()
+
+
+def destino_para(lob: str, col_b: str):
+    """Work queue destino de la fila, o None si no corresponde.
+
+    El caso especial exige A y B a la vez. Si no se cumple, rige el mapeo de la columna A.
+    """
+    if normalizar(lob) == normalizar(CASO_ESPECIAL["lob"]) and normalizar(col_b) == normalizar(CASO_ESPECIAL["col_b"]):
+        return CASO_ESPECIAL["destino"]
+    for lob_mapeada, destino in MAPA_LOB.items():
+        if normalizar(lob) == normalizar(lob_mapeada):
+            return destino
+    return None
+
+
 def read_rows(path: Path):
-    """Devuelve [(nro_fila, lob, jpv)] para cada fila del XLSX que tenga algún dato."""
+    """Devuelve [(nro_fila, lob, col_b, jpv)] para cada fila del XLSX que tenga algún dato."""
     wb = load_workbook(path, read_only=True, data_only=True)
     try:
         ws = wb[XLSX_SHEET] if XLSX_SHEET else wb.active
         idx_lob = column_index_from_string(COL_LOB) - 1
+        idx_b = column_index_from_string(COL_B) - 1
         idx_jpv = column_index_from_string(COL_JPV) - 1
         first_row = 2 if XLSX_HAS_HEADER else 1
         rows = []
         for nro, row in enumerate(ws.iter_rows(min_row=first_row, values_only=True), start=first_row):
             lob = to_text(row[idx_lob]) if idx_lob < len(row) else ""
+            col_b = to_text(row[idx_b]) if idx_b < len(row) else ""
             jpv = to_text(row[idx_jpv]) if idx_jpv < len(row) else ""
-            if lob or jpv:
-                rows.append((nro, lob, jpv))
+            if lob or col_b or jpv:
+                rows.append((nro, lob, col_b, jpv))
         return rows
     finally:
         wb.close()
@@ -210,6 +238,7 @@ def main():
 
     rows = read_rows(Path(sys.argv[1]))
     log.info("Filas a procesar: %d (DRY_RUN=%s)", len(rows), DRY_RUN)
+    # Se valida antes de abrir el navegador: el caso especial necesita que A y B coincidan.
     resultados = []
 
     with sync_playwright() as p:
@@ -221,20 +250,20 @@ def main():
         input("Iniciá sesión, abrí la basket desde 'View Queue for' (popup) y después presioná Enter acá... ")
         basket = find_basket(context, main_page)
 
-        for idx, (nro, lob, jpv) in enumerate(rows):
+        for idx, (nro, lob, col_b, jpv) in enumerate(rows):
             if basket.is_closed():
                 log.error("La basket se cerró. Se marcan las filas restantes como NO PROCESADA.")
-                for nro_r, lob_r, jpv_r in rows[idx:]:
+                for nro_r, lob_r, col_b_r, jpv_r in rows[idx:]:
                     resultados.append((nro_r, lob_r, jpv_r, "", "NO PROCESADA", "La basket se cerró"))
                 break
 
-            destino = MAPA_LOB.get(lob)
+            destino = destino_para(lob, col_b)
             if not jpv:
                 resultados.append((nro, lob, jpv, "", "OMITIDA", "JPV vacío"))
                 imprimir(nro, lob, jpv, "OMITIDA", "JPV vacío")
                 continue
             if destino is None:
-                detalle = f"LOB sin work queue: '{lob}'"
+                detalle = f"sin work queue: A='{lob}', B='{col_b}'"
                 resultados.append((nro, lob, jpv, "", "OMITIDA", detalle))
                 imprimir(nro, lob, jpv, "OMITIDA", detalle)
                 continue

@@ -5,7 +5,9 @@ Reasigna casos de Pega a la work queue que corresponde a su LOB, a partir de un 
 1. Hace click en el JPV (columna C, **ID**) en la basket. La basket es un popup.
 2. El caso se abre en la ventana principal de Pega. Pestaña **Work**: si el case owner no es `TSFX1213`, la fila se saltea.
 3. **Actions** > **Reassign**.
-4. Elige la work queue según la LOB (columna A, **Comments**) en el dropdown **Work Queue**: `Corp&FI` → `WDPCTSTWRKFX12`, `Retail` → `WDPCTSTWRKFX13`.
+4. Elige la work queue en el dropdown **Work Queue**:
+   - Columna A (**Comments**) `Corp&FI` → `WDPCTSTWRKFX12`. `Retail` → `WDPCTSTWRKFX13`.
+   - Caso especial: si A es `To check` **y** B es `FX Retail Inv` a la vez → `WDPCTSTWRKFX13` (TSFX13). Si solo se cumple una de las dos, la fila se omite.
 5. **Submit** y **Close**. En modo simulación, **Close** y **Discard** (no se guarda nada).
 
 Todo está en un solo archivo: `ui_automation.py`.
@@ -43,7 +45,9 @@ Codegen graba lo que tipeás en el login. No dejes contraseñas en el archivo an
 
 **Excel y mapeo**
 - `COL_LOB` y `COL_JPV`: letras de las columnas. Por defecto `A` y `C`.
-- `MAPA_LOB`: texto exacto de la LOB → value de la work queue en el dropdown.
+- `COL_B`: columna B, que se usa solo en el caso especial. Por defecto `B`.
+- `MAPA_LOB`: LOB (columna A) → value de la work queue en el dropdown.
+- `CASO_ESPECIAL`: condición de A y B a la vez, y work queue destino. Las comparaciones no distinguen mayúsculas ni espacios de más.
 - `XLSX_HAS_HEADER`: `True` si la primera fila es encabezado.
 
 **Selectores (sección `CONFIGURACIÓN` de `ui_automation.py`)**
@@ -57,10 +61,11 @@ Codegen graba lo que tipeás en el login. No dejes contraseñas en el archivo an
 
 ## 4. Preparar el XLSX
 
-| Comments (A) | … | ID (C) | … |
+| Comments (A) | B | ID (C) | … |
 |---|---|---|---|
 | Corp&FI | … | JPV2026118-000000 | … |
 | Retail | … | JPV2026118-000001 | … |
+| To check | FX Retail Inv | JPV2026118-000002 | … |
 
 Las demás columnas se ignoran. El archivo tiene que ser `.xlsx`. No subas archivos con datos al repo.
 
@@ -79,7 +84,7 @@ python ui_automation.py datos.xlsx
 4. El script procesa cada fila.
 
 Al terminar:
-- `resultados.csv`: estado de cada fila. `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (case owner distinto de `TSFX1213`, LOB sin work queue o JPV vacío) o `NO PROCESADA` (la basket se cerró antes).
+- `resultados.csv`: estado de cada fila. `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (case owner distinto de `TSFX1213`, sin work queue según A y B, o JPV vacío) o `NO PROCESADA` (la basket se cerró antes).
 - `error_fila_N.png`: captura de la ventana principal en la fila N, si falló.
 
 ## Pendiente antes de usar `DRY_RUN = False`
