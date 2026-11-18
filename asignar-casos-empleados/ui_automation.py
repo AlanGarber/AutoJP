@@ -312,15 +312,27 @@ def recover(page: Page) -> bool:
 
 
 def guardar_resultados(results: list) -> None:
-    """Escribe resultados.csv. Se llama también si la corrida se corta a mitad."""
+    """Escribe resultados.csv (sin las omitidas) y muestra la tabla de errores y el resumen.
+
+    Se llama también si la corrida se corta a mitad.
+    """
     out = Path("resultados.csv")
+    filas = [r for r in results if r[3] != "OMITIDA"]
     with out.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["fila", "assignee", "jpv", "estado", "detalle"])
-        writer.writerows(results)
+        writer.writerows(filas)
 
-    ok = sum(r[3] == "OK" for r in results)
-    log.info("Resultados: %d OK, %d con error u omitidas. Detalle en %s", ok, len(results) - ok, out.resolve())
+    ok = [r for r in filas if r[3] == "OK"]
+    errores = [r for r in filas if r[3] == "ERROR"]
+    sin_procesar = [r for r in filas if r[3] == "NO PROCESADA"]
+    if errores:
+        print(f"\n{RED}{'JPV':<16}{'Asignado a':<32}Motivo{RESET}")
+        for r in errores:
+            print(f"{RED}{r[2]:<16}{r[1]:<32}{r[4]}{RESET}")
+        print()
+    log.info("Resultados: %d OK, %d con error, %d sin procesar. Detalle en %s",
+             len(ok), len(errores), len(sin_procesar), out.resolve())
 
 
 def main() -> None:

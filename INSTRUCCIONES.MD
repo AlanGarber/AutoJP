@@ -98,6 +98,7 @@ Copiá el comando completo, pegalo en la terminal y apretá Enter.
 - Mirá la terminal mientras corre:
   - En verde: `OK - JPV ... asignado a ...`. Ese caso quedó reasignado.
   - En rojo: `ERROR - JPV ... no se pudo asignar a ...`, con el motivo. Avisale a Alan.
+- Al terminar, la terminal muestra una tabla con los JPV que fallaron (y a quién estaban asignados) y el resumen de OK y errores. Si hubo errores, pasale esa tabla a Alan.
   - En amarillo: `JPV ... asignado al bot (B089707). Se saltea la fila.` No hace falta hacer nada: ese caso ya está con el bot y el script sigue con el siguiente.
 
 ---
