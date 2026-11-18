@@ -83,7 +83,7 @@ Reasigna cada caso a la work queue que corresponde a su LOB.
 1. La basket se abre como popup desde el dropdown **View Queue for** de la ventana principal (confirmado con codegen el 2026-11-18). Hace click en el JPV dentro de la basket.
 2. El caso se abre en la ventana principal de Pega, dentro de iframes `PegaGadget*`.
 3. Pestaña Work, verificación del owner.
-4. **Actions** > **Reassign** (la opción está dentro del menú Actions, es un menuitem).
+4. **Actions** > **Reassign** (la opción está dentro del menú Actions, es un menuitem). Si Reassign no aparece en el menú, **Perform research** (con el nombre del empleado después) y después **Reassign** (2026-11-18).
 5. Elige la work queue en el dropdown **Work Queue** (`label=Work Queue`, por `value`).
 6. **Submit** y **Close**. En modo simulación, **Close** y **Discard** (no se guarda nada).
 
