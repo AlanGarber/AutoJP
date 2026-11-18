@@ -475,7 +475,16 @@ def reasignar_fila(main_page: Page, basket: Page, jpv: str, destino: str, dry_ru
     frame = buscar_frame(main_page, WORK_QUEUE_SELECTOR, PEGA_TIMEOUT_MS)
     if frame is None:
         raise RuntimeError("no apareció el dropdown Work Queue")
-    frame.locator(WORK_QUEUE_SELECTOR).select_option(value=destino)
+    try:
+        frame.locator(WORK_QUEUE_SELECTOR).select_option(value=destino)
+    except Exception as error:
+        # Muestra qué opciones tiene el dropdown, para comparar con el value configurado.
+        opciones = frame.locator(WORK_QUEUE_SELECTOR).evaluate(
+            "s => [...s.options].map(o => o.value + ' | ' + o.text.trim())"
+        )
+        raise RuntimeError(
+            f"no pude elegir {destino} en Work Queue. Opciones del dropdown: {opciones}"
+        ) from error
     main_page.wait_for_timeout(STEP_PAUSE_MS)
 
     # 5. Guardar y cerrar (o descartar en DRY_RUN)
