@@ -53,7 +53,7 @@ COL_B = "B"                    # columna B: se usa solo en el caso especial
 COL_JPV = "C"                  # columna "ID": JPV (ID del caso)
 MAPA_LOB = {                   # LOB (columna A) -> value de la work queue en el dropdown
     "Corp&FI": "WDPCTSTWRKFX12",
-    "Retail": "WDPCTSTWRKFX13",
+    "Retail": "WDPCTSRWRKFX13",
 }
 # Caso especial: se cumplen las dos condiciones a la vez (A y B) -> work queue destino.
 # EN PAUSA: con False, las filas "To check" se omiten. Cambiar a True para reactivarlo.
@@ -61,7 +61,7 @@ CASO_ESPECIAL_ACTIVO = False
 CASO_ESPECIAL = {
     "lob": "To check",
     "col_b": "FX Retail Inv",
-    "destino": "WDPCTSTWRKFX13",  # TSFX13
+    "destino": "WDPCTSRWRKFX13",  # TSFX13
 }
 
 # --- Basket (popup) ---

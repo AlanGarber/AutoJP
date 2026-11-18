@@ -6,8 +6,8 @@ Reasigna casos de Pega a la work queue que corresponde a su LOB, a partir de un 
 2. El caso se abre en la ventana principal de Pega. Pestaña **Work**: si el case owner no es `FX1213`, la fila se saltea.
 3. **Actions** > **Reassign**. Si **Reassign** no aparece en el menú, elige **Perform research** (la opción tiene el nombre del empleado después) y después **Reassign**.
 4. Elige la work queue en el dropdown **Work Queue**:
-   - Columna A (**Comments**) `Corp&FI` → `WDPCTSTWRKFX12`. `Retail` → `WDPCTSTWRKFX13`.
-   - Caso especial (**en pausa**, `CASO_ESPECIAL_ACTIVO = False`): si A es `To check` **y** B es `FX Retail Inv` a la vez → `WDPCTSTWRKFX13` (TSFX13). Mientras esté en pausa, esas filas se omiten. Para reactivarlo, poné `CASO_ESPECIAL_ACTIVO = True`.
+   - Columna A (**Comments**) `Corp&FI` → `WDPCTSTWRKFX12`. `Retail` → `WDPCTSRWRKFX13`.
+   - Caso especial (**en pausa**, `CASO_ESPECIAL_ACTIVO = False`): si A es `To check` **y** B es `FX Retail Inv` a la vez → `WDPCTSRWRKFX13` (TSFX13). Mientras esté en pausa, esas filas se omiten. Para reactivarlo, poné `CASO_ESPECIAL_ACTIVO = True`.
 5. **Submit** y **Close**. En modo simulación, **Close** y **Discard** (no se guarda nada).
 
 Todo está en un solo archivo: `ui_automation.py`.
