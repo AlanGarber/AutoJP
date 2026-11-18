@@ -178,17 +178,24 @@ def mover_mouse_al_centro(page: Page) -> None:
     page.mouse.move(ancho / 2, alto / 2)
 
 
+def link_jpv_visible(basket: Page, jpv: str):
+    """Devuelve el link visible del JPV en la basket, o None si no hay ninguno a la vista.
+
+    Prefiere el link con ese nombre. Si no lo hay, usa el texto exacto visible.
+    """
+    for selector in (f'role=link[name="{jpv}"s] >> visible=true', f'text="{jpv}" >> visible=true'):
+        candidatos = basket.locator(selector)
+        if candidatos.count() > 0:
+            return candidatos.first
+    return None
+
+
 def buscar_jpv_en_basket(basket: Page, jpv: str):
-    """Busca el link del JPV en la grilla de la basket, bajando con la rueda si hace falta.
+    """Busca el link visible del JPV en la grilla de la basket, bajando con la rueda si hace falta.
 
     Primero busca desde la posición actual y después desde el inicio. Devuelve el locator
     del link o None si no aparece.
     """
-    link = basket.get_by_text(jpv, exact=True)
-
-    def link_visible():
-        return link.count() > JPV_LINK_NTH and link.nth(JPV_LINK_NTH).is_visible()
-
     for pasada in range(2):
         if pasada == 1:
             mover_mouse_al_centro(basket)
@@ -196,14 +203,13 @@ def buscar_jpv_en_basket(basket: Page, jpv: str):
                 basket.mouse.wheel(0, -SCROLL_PASO_PX * 20)
                 basket.wait_for_timeout(200)
         for _ in range(SCROLL_MAX_PASOS):
-            if link_visible():
-                return link.nth(JPV_LINK_NTH)
+            link = link_jpv_visible(basket, jpv)
+            if link is not None:
+                return link
             mover_mouse_al_centro(basket)
             basket.mouse.wheel(0, SCROLL_PASO_PX)
             basket.wait_for_timeout(300)
-    if link_visible():
-        return link.nth(JPV_LINK_NTH)
-    return None
+    return link_jpv_visible(basket, jpv)
 
 
 def abrir_basket(main_page: Page) -> Page:
