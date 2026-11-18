@@ -85,7 +85,7 @@ python ui_automation.py datos.xlsx
 4. El script procesa cada fila.
 
 Al terminar:
-- `resultados.csv`: estado de cada fila. `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (case owner distinto de `TSFX1213`, sin work queue según A y B, o JPV vacío) o `NO PROCESADA` (la basket se cerró antes).
+- `resultados.csv`: estado de cada fila. `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (case owner distinto de `TSFX1213`, JPV que no aparece en la basket, sin work queue según A y B, o JPV vacío) o `NO PROCESADA` (la basket se cerró antes). Si el JPV no aparece en la basket, la fila se omite y el script sigue con la siguiente.
 - `error_fila_N.png`: captura de la ventana principal en la fila N, si falló.
 
 ## Pendiente antes de usar `DRY_RUN = False`

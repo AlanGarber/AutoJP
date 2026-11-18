@@ -229,7 +229,10 @@ def reasignar_fila(main_page: Page, basket: Page, jpv: str, destino: str, dry_ru
     """Procesa una fila. Devuelve (estado, detalle). Lanza SkipRow si la fila no corresponde."""
     # 1. Abrir el caso desde la basket: se carga en la ventana principal
     basket.bring_to_front()
-    basket.get_by_text(jpv, exact=True).nth(JPV_LINK_NTH).click()
+    link_jpv = basket.get_by_text(jpv, exact=True)
+    if link_jpv.count() <= JPV_LINK_NTH:
+        raise SkipRow("el JPV no aparece en la basket")
+    link_jpv.nth(JPV_LINK_NTH).click()
     main_page.bring_to_front()
     main_page.wait_for_timeout(POST_OPEN_CASE_PAUSE_MS)
 
