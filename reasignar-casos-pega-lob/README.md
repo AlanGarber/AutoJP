@@ -52,7 +52,7 @@ Codegen graba lo que tipeás en el login. No dejes contraseñas en el archivo an
 
 **Selectores (sección `CONFIGURACIÓN` de `ui_automation.py`)**
 - `JPV_LINK_NTH`: el índice del link del JPV en la basket (`2`, según codegen).
-- `BASKET_QUEUE_VALUE`: el value del dropdown **View Queue for** que abre la basket. Hoy está `WDPCTSXWRKFX12`, pendiente de confirmar.
+- `BASKET_QUEUE_VALUE`: el value del dropdown **View Queue for** que abre la basket. Hoy está `WDPCTSXWRKFX1213`.
 - `OWNER_EXPECTED`: case owner que tiene que tener el caso para reasignarse.
 - `WORK_QUEUE_SELECTOR`: dropdown de la work queue destino.
 
@@ -90,7 +90,6 @@ Al terminar:
 
 ## Pendiente antes de usar `DRY_RUN = False`
 
-- Confirmar el value completo de **View Queue for** (`BASKET_QUEUE_VALUE`), porque el codegen lo cortó.
 
 - Cambiar la validación del case owner por igualdad exacta, con el locator del campo **Case owner** en la pestaña Work. Hoy busca `TSFX1213` como palabra completa dentro de todo el panel.
 - Confirmar los selectores `PLACEHOLDER` contra la app real.

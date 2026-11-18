@@ -88,7 +88,7 @@ SSO_PROVIDER_NAME = "JPMorgan Chase (Default)"
 AUTO_ABRIR_BASKET = True       # True: el script abre la basket (My teams > View Queue for). False: la abrís a mano.
 BASKET_MENU_ITEM_NAME = "My teams"                    # menuitem de la ventana principal (texto, sin el ícono)
 BASKET_QUEUE_LABEL = "View Queue for"                 # dropdown que abre la basket como popup
-BASKET_QUEUE_VALUE = "WDPCTSXWRKFX12"                 # PENDIENTE: confirmar el value completo (el codegen lo cortó)
+BASKET_QUEUE_VALUE = "WDPCTSXWRKFX1213"               # basket a abrir (confirmado)
 
 # --- Ejecución ---
 DRY_RUN = True                 # True: hace todo hasta Close y Discard, sin guardar. False: reasigna de verdad.
