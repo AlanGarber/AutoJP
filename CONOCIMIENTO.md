@@ -75,8 +75,9 @@ Reasigna cada caso a la work queue que corresponde a su LOB.
 
 ### Reglas de negocio
 - `Corp&FI` → work queue `WDPCTSTWRKFX12`.
-- `Retail` → work queue `WDPCTSTWRKFX13`.
-- **Caso especial (en pausa desde 2026-11-18):** si A es `To check` **y** B es `FX Retail Inv` a la vez, iría a `WDPCTSTWRKFX13`. Mientras esté en pausa (`CASO_ESPECIAL_ACTIVO = False`), esas filas se omiten. Si solo se cumple una de las dos, la fila se omite.
+- `Retail` → work queue `WDPCTSRWRKFX13`.
+- Work queue FX13 (2026-11-18): el value correcto es `WDPCTSRWRKFX13` (con `SR`, no `ST`). Lo confirmó Alan en la app. FX12 sigue siendo `WDPCTSTWRKFX12`.
+- **Caso especial (en pausa desde 2026-11-18):** si A es `To check` **y** B es `FX Retail Inv` a la vez, iría a `WDPCTSRWRKFX13`. Mientras esté en pausa (`CASO_ESPECIAL_ACTIVO = False`), esas filas se omiten. Si solo se cumple una de las dos, la fila se omite.
 - El caso solo se reasigna si su case owner es exactamente `FX1213`. Hoy la validación busca ese valor como palabra completa dentro del panel Work; falta pasarla a igualdad exacta con el locator del campo **Case owner**.
 
 ### Flujo
@@ -169,7 +170,7 @@ Al revisar un caso concreto se vio que casi todas las respuestas del equipo lleg
 - **Login:** se agregaron los clicks automáticos de SSO. Usuario, contraseña y MFA los completa la persona.
 - **Ritmo:** se agregó una pausa entre filas porque el script iba demasiado rápido.
 - **Pega:** se diagnosticó la estructura. La basket es un popup y el caso se abre en la ventana principal, con los controles dentro de iframes `PegaGadget*`. Por eso el script trabaja con dos páginas.
-- **2026-11-18, reasignar-casos-pega-lob:** se confirmó con codegen el flujo de work queue. Retail → `WDPCTSTWRKFX13` y el índice del JPV en la basket quedaron confirmados. Se decidió que el caso especial "To check" queda en pausa para testear el resto del flujo.
+- **2026-11-18, reasignar-casos-pega-lob:** se confirmó con codegen el flujo de work queue. Retail → `WDPCTSRWRKFX13` y el índice del JPV en la basket quedaron confirmados. Se decidió que el caso especial "To check" queda en pausa para testear el resto del flujo.
 - **Outlook:** `mails-sin-responder` se creó y se revisó su código. Quedó como solo lectura.
 - **Instrucciones para el equipo:** se quitó la opción de ZIP. Se usa solo `git clone`.
 
@@ -182,7 +183,7 @@ Al revisar un caso concreto se vio que casi todas las respuestas del equipo lleg
 ### reasignar-casos-pega-lob
 - Cambiar la validación del owner a igualdad exacta, con el locator del campo **Case owner** en la pestaña Work.
 - Confirmar los selectores `PLACEHOLDER` contra la app real.
-- Caso especial "To check" en pausa (`CASO_ESPECIAL_ACTIVO = False`). Antes de reactivarlo, confirmar que TSFX13 = `WDPCTSTWRKFX13` y si la validación de owner aplica también a ese caso.
+- Caso especial "To check" en pausa (`CASO_ESPECIAL_ACTIVO = False`). Antes de reactivarlo, confirmar que TSFX13 = `WDPCTSRWRKFX13` y si la validación de owner aplica también a ese caso.
 - Validar selectores y el campo Case owner en la VDI, con casos de prueba controlados (DRY_RUN ya está en `False`).
 
 ### mails-sin-responder
