@@ -5,7 +5,7 @@ Reasigna casos de Pega a la work queue que corresponde a su LOB, a partir de un 
 Por cada fila:
   1. Hace click en el JPV (columna C, "ID") en la basket (popup). El caso se abre en la ventana principal.
   2. Pestaña Work: si el case owner no es FX1213, la fila se saltea sin tocar el caso.
-  3. Actions > Reassign.
+  3. Actions > Reassign. Si Reassign no está en el menú, Actions > Perform research (con el nombre del empleado) > Reassign.
   4. Elige la work queue en el dropdown "Work Queue" según la columna A y, en el caso especial, la columna B
      (ver destino_para).
   5. Submit y Close. En DRY_RUN, en cambio, Close y Discard (no se guarda nada).
@@ -74,6 +74,8 @@ WORK_TAB = 'text="Work" >> visible=true'                          # pestaña Wor
 WORK_PANEL = "role=tabpanel[name='Work'] >> visible=true"         # contenido de Work: ahí figura el case owner
 ACTIONS_MENU = "role=button[name='Actions'] >> visible=true"
 REASSIGN_OPTION = "role=menuitem[name='Reassign'] >> visible=true"
+PERFORM_RESEARCH_OPTION = "role=menuitem[name=/^Perform research/i] >> visible=true"  # tiene el nombre del empleado después
+MENU_CHECK_MS = 2000           # cuánto esperar a que aparezca una opción del menú Actions antes de decidir cuál usar
 WORK_QUEUE_SELECTOR = 'internal:label="Work Queue"i'              # dropdown de la work queue destino (igual que get_by_label del codegen)
 SUBMIT_BUTTON = "role=button[name='Submit'] >> visible=true"
 CLOSE_BUTTON = "role=button[name='Close'] >> visible=true"
@@ -337,9 +339,15 @@ def reasignar_fila(main_page: Page, basket: Page, jpv: str, destino: str, dry_ru
     if not contiene_valor(owner, OWNER_EXPECTED):
         raise SkipRow(f"el case owner no es {OWNER_EXPECTED}")
 
-    # 3. Actions > Reassign
+    # 3. Actions > Reassign. Si Reassign no está en el menú, primero Perform research.
     clic(main_page, ACTIONS_MENU, "botón Actions")
-    clic(main_page, REASSIGN_OPTION, "opción Reassign")
+    if buscar_frame(main_page, REASSIGN_OPTION, MENU_CHECK_MS) is not None:
+        clic(main_page, REASSIGN_OPTION, "opción Reassign")
+    elif buscar_frame(main_page, PERFORM_RESEARCH_OPTION, MENU_CHECK_MS) is not None:
+        clic(main_page, PERFORM_RESEARCH_OPTION, "opción Perform research")
+        clic(main_page, REASSIGN_OPTION, "opción Reassign (dentro de Perform research)")
+    else:
+        raise RuntimeError("no apareció Reassign ni Perform research en el menú Actions")
 
     # 4. Work queue destino según LOB
     frame = buscar_frame(main_page, WORK_QUEUE_SELECTOR, PEGA_TIMEOUT_MS)
