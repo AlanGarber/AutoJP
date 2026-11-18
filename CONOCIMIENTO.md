@@ -94,6 +94,7 @@ Estados: `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (owner distinto de `TSFX
 - `DRY_RUN = True`: el script arranca en simulación. Solo cambiar a `False` después de validar selectores y reglas.
 - `JPV_LINK_NTH = 2`: índice del link del JPV en la basket, según codegen. Confirmado el 2026-11-18.
 - `CASO_ESPECIAL_ACTIVO = False`: pausa del caso "To check". Decidido el 2026-11-18 para testear.
+- Criterio de omisión (2026-11-18): si el JPV no aparece en la basket, la fila queda `OMITIDA` y el script sigue con la siguiente.
 - Login y basket automáticos (2026-11-18): el script hace los clicks de SSO, espera el Enter después del login y abre la basket (My teams > View Queue for). `BASKET_QUEUE_VALUE = "WDPCTSXWRKFX1213"`, confirmado el 2026-11-18.
 - `WORK_QUEUE_SELECTOR = "label=Work Queue"`.
 
