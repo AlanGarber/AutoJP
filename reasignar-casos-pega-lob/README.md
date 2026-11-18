@@ -52,6 +52,7 @@ Codegen graba lo que tipeás en el login. No dejes contraseñas en el archivo an
 
 **Selectores (sección `CONFIGURACIÓN` de `ui_automation.py`)**
 - `JPV_LINK_NTH`: el índice del link del JPV en la basket (`2`, según codegen).
+- `BASKET_QUEUE_VALUE`: el value del dropdown **View Queue for** que abre la basket. Hoy está `WDPCTSXWRKFX12`, pendiente de confirmar.
 - `OWNER_EXPECTED`: case owner que tiene que tener el caso para reasignarse.
 - `WORK_QUEUE_SELECTOR`: dropdown de la work queue destino.
 
@@ -79,16 +80,17 @@ python ui_automation.py datos.xlsx
 ```
 
 1. Se abre el navegador en Pega y el script hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). Con `AUTO_SSO_CLICKS = False` los hacés a mano.
-2. Completá usuario, contraseña y MFA en el navegador.
-3. Abrí la basket desde **View Queue for** (popup).
-4. Volvé a la terminal y presioná Enter.
-5. El script procesa cada fila.
+2. Completá usuario, contraseña y MFA en el navegador. Cuando se vea Pega, volvé a la terminal y presioná Enter.
+3. El script abre la basket solo (**My teams** > **View Queue for**). Con `AUTO_ABRIR_BASKET = False` la abrís a mano desde **View Queue for**.
+4. El script procesa cada fila.
 
 Al terminar:
 - `resultados.csv`: estado de cada fila. `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (case owner distinto de `TSFX1213`, sin work queue según A y B, o JPV vacío) o `NO PROCESADA` (la basket se cerró antes).
 - `error_fila_N.png`: captura de la ventana principal en la fila N, si falló.
 
 ## Pendiente antes de usar `DRY_RUN = False`
+
+- Confirmar el value completo de **View Queue for** (`BASKET_QUEUE_VALUE`), porque el codegen lo cortó.
 
 - Cambiar la validación del case owner por igualdad exacta, con el locator del campo **Case owner** en la pestaña Work. Hoy busca `TSFX1213` como palabra completa dentro de todo el panel.
 - Confirmar los selectores `PLACEHOLDER` contra la app real.

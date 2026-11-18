@@ -84,6 +84,12 @@ AUTO_SSO_CLICKS = True         # True: el script hace los clicks de SSO. Usuario
 SSO_LINK_NAME = "Login with SSO"
 SSO_PROVIDER_NAME = "JPMorgan Chase (Default)"
 
+# --- Abrir la basket ---
+AUTO_ABRIR_BASKET = True       # True: el script abre la basket (My teams > View Queue for). False: la abrís a mano.
+BASKET_MENU_ITEM_NAME = "My teams"                    # menuitem de la ventana principal (texto, sin el ícono)
+BASKET_QUEUE_LABEL = "View Queue for"                 # dropdown que abre la basket como popup
+BASKET_QUEUE_VALUE = "WDPCTSXWRKFX12"                 # PENDIENTE: confirmar el value completo (el codegen lo cortó)
+
 # --- Ejecución ---
 DRY_RUN = True                 # True: hace todo hasta Close y Discard, sin guardar. False: reasigna de verdad.
 BROWSER_CHANNEL = "msedge"     # "chrome" o "msedge": navegador ya instalado; None: Chromium de Playwright
@@ -127,6 +133,21 @@ def login_sso(page: Page) -> None:
     page.get_by_role("link", name=SSO_LINK_NAME, exact=True).click()
     page.get_by_role("button", name=SSO_PROVIDER_NAME).click()
     page.wait_for_timeout(STEP_PAUSE_MS)
+
+
+def abrir_basket(main_page: Page) -> Page:
+    """My teams > View Queue for. La basket se abre como popup y se devuelve esa página."""
+    main_page.get_by_role("menuitem", name=re.compile(BASKET_MENU_ITEM_NAME)).click()
+    main_page.wait_for_timeout(STEP_PAUSE_MS)
+    selector = f"label={BASKET_QUEUE_LABEL}"
+    with main_page.expect_popup() as popup_info:
+        frame = buscar_frame(main_page, selector, PEGA_TIMEOUT_MS)
+        if frame is None:
+            raise RuntimeError(f"no apareció el dropdown {BASKET_QUEUE_LABEL}")
+        frame.locator(selector).select_option(value=BASKET_QUEUE_VALUE)
+    basket = popup_info.value
+    basket.wait_for_load_state()
+    return basket
 
 
 def normalizar(texto: str) -> str:
@@ -267,8 +288,12 @@ def main():
         if AUTO_SSO_CLICKS:
             login_sso(main_page)
 
-        input("Completá usuario, contraseña y MFA, abrí la basket desde 'View Queue for' (popup) y después presioná Enter acá... ")
-        basket = find_basket(context, main_page)
+        if AUTO_ABRIR_BASKET:
+            input("Completá usuario, contraseña y MFA. Cuando se vea Pega, presioná Enter acá... ")
+            basket = abrir_basket(main_page)
+        else:
+            input("Completá usuario, contraseña y MFA, abrí la basket desde 'View Queue for' (popup) y después presioná Enter acá... ")
+            basket = find_basket(context, main_page)
 
         for idx, (nro, lob, col_b, jpv) in enumerate(rows):
             if basket.is_closed():
