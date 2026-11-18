@@ -28,6 +28,7 @@ Genera resultados.csv con el estado de cada fila y una captura
 import csv
 import logging
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -57,7 +58,11 @@ PEGA_FRAME_PREFIX = "PegaGadget"                    # Pega cambia el número del
 PEGA_FRAME_TIMEOUT_MS = 15000                       # cuánto buscar el iframe con el botón Actions
 ACTIONS_MENU = "role=button[name='Actions'] >> visible=true"        # PegaGadget Actions
 REASSIGN_OPTION = "role=menuitem[name='Reassign'] >> visible=true"  # PegaGadget Reassign
-STEP_BY_STEP_OPTION = "role=menuitem[name='Step By Step:'] >> visible=true"  # opción que se usa si Reassign no aparece en Actions
+# Step By Step: puede ser menuitem o botón, y puede tener un nombre de empleado a continuación
+STEP_BY_STEP_OPTIONS = (
+    "role=menuitem[name=/^Step By Step/i] >> visible=true",
+    "role=button[name=/^Step By Step/i] >> visible=true",
+)
 PERFORM_RESEARCH_OPTION = "role=menuitem[name=/^Perform research/i] >> visible=true"  # opción que se usa si tampoco aparece Step By Step
 MENU_CHECK_MS = 2000                                # cuánto esperar a que aparezca una opción del menú Actions
 OPERATOR_LABEL = "operator"                         # label del dropdown "operator": ahí se elige el assignee
@@ -75,7 +80,7 @@ XLSX_HAS_HEADER = True     # True: la primera fila es encabezado y se saltea
 COL_ASSIGNEE = "A"         # columna con el assignee
 COL_JPV = "B"              # columna con el identificador JPV
 COL_TEAM = "C"             # columna con el equipo
-TEAMS_ALLOWED = {"AUTOCV", "FX ChaseTr"}  # solo se procesan las filas de estos equipos; el resto se omite
+TEAMS_ALLOWED = {"AUTOCV", "FX ChaseTr", "iFX"}  # solo se procesan las filas de estos equipos; el resto se omite
 COL_CASE_TYPE = "D"        # columna con el tipo de caso
 CASE_TYPE_TRIGGER = "Miscellaneous"  # si la fila tiene este tipo, antes de reasignar se cambia el tipo de caso
 NEW_CASE_TYPE = "JPM-Work-Shared-WDPC-Exp-AmendBen"  # VALUE de la opción en el dropdown (no el texto visible)
@@ -164,6 +169,11 @@ class SkipRow(Exception):
     """La fila no se procesa a propósito (no es un error)."""
 
 
+def contiene_valor(texto: str, valor: str) -> bool:
+    """True si valor aparece como palabra completa: FX1213 no es FX12, B0897071 no es B089707."""
+    return re.search(rf"(?<![A-Za-z0-9]){re.escape(valor)}(?![A-Za-z0-9])", texto) is not None
+
+
 def menu_option_visible(pega: FrameLocator, selector: str) -> bool:
     """True si la opción aparece en el menú Actions dentro de MENU_CHECK_MS."""
     try:
@@ -219,9 +229,9 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
         owner = find_frame_with(page, WORK_PANEL).locator(WORK_PANEL).inner_text(timeout=PEGA_FRAME_TIMEOUT_MS)
         if not owner.strip():
             raise ValueError("no se pudo leer el asignado actual")
-        if BOT_ID in owner:
+        if contiene_valor(owner, BOT_ID):
             raise SkipRow(f"asignado al bot {BOT_ID}")
-        if not any(o in owner for o in OWNERS_ALLOWED):
+        if not any(contiene_valor(owner, o) for o in OWNERS_ALLOWED):
             raise SkipRow(f"no se reasigna: el campo Work no dice {' ni '.join(OWNERS_ALLOWED)}")
 
         # 2) Actions. Solo para Miscellaneous y si aparece Change case type:
@@ -245,9 +255,10 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
 
         # 3) Reassign (si no aparece: Step By Step, y después Reassign)
         if not menu_option_visible(pega, REASSIGN_OPTION):
-            if menu_option_visible(pega, STEP_BY_STEP_OPTION):
+            step_by_step = next((sel for sel in STEP_BY_STEP_OPTIONS if menu_option_visible(pega, sel)), None)
+            if step_by_step:
                 paso = "Step By Step"
-                pega.locator(STEP_BY_STEP_OPTION).click()
+                pega.locator(step_by_step).click()
             else:
                 paso = "Perform research"
                 pega.locator(PERFORM_RESEARCH_OPTION).click()

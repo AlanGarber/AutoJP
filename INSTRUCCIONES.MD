@@ -94,7 +94,7 @@ Copiá el comando completo, pegalo en la terminal y apretá Enter.
 ## Paso 6: Esperar
 
 - No toques el mouse ni el teclado mientras corre. El script trabaja solo.
-- Procesa una fila por vez. Las filas de equipos que no sean AUTOCV ni FX ChaseTr se saltean solas.
+- Procesa una fila por vez. Las filas de equipos que no sean AUTOCV, FX ChaseTr ni iFX se saltean solas.
 - Mirá la terminal mientras corre:
   - En verde: `OK - JPV ... asignado a ...`. Ese caso quedó reasignado.
   - En rojo: `ERROR - JPV ... no se pudo asignar a ...`, con el motivo. Avisale a Alan.

@@ -79,7 +79,7 @@ Abrí `ui_automation.py` y completá la sección `CONFIGURACIÓN`:
 - `XLSX_HAS_HEADER`: `True` si la primera fila es de encabezado (se saltea).
 - `COL_ASSIGNEE`, `COL_JPV`, `COL_TEAM` y `COL_CASE_TYPE`: letras de las columnas. Por defecto `A`, `B`, `C` y `D`.
 - `CASE_TYPE_TRIGGER` y `NEW_CASE_TYPE`: si el tipo de caso es `CASE_TYPE_TRIGGER` (por defecto `"Miscellaneous"`), antes de reasignar se cambia a `NEW_CASE_TYPE`. `NEW_CASE_TYPE` es el **value** de la opción en el dropdown, no el texto visible.
-- `TEAMS_ALLOWED`: conjunto de equipos que se procesan. Por defecto `{"AUTOCV", "FX ChaseTr"}`. Las filas de otros equipos quedan como `OMITIDA`. La comparación distingue mayúsculas y minúsculas.
+- `TEAMS_ALLOWED`: conjunto de equipos que se procesan. Por defecto `{"AUTOCV", "FX ChaseTr", "iFX"}`. Las filas de otros equipos quedan como `OMITIDA`. La comparación distingue mayúsculas y minúsculas.
 - `NAME_ALIASES`: nombres del XLSX que no coinciden con el dropdown, como `{"Nombre en XLSX": "Nombre en la app"}`.
 - `BROWSER_CHANNEL`: `"chrome"` o `"msedge"` usa el navegador que ya tenés instalado. `None` usa el Chromium de Playwright.
 
