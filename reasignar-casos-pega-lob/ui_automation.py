@@ -98,8 +98,15 @@ DRY_RUN = False                # True: hace todo hasta Close y Discard, sin guar
 BROWSER_CHANNEL = "msedge"     # "chrome" o "msedge": navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False               # False: ves la automatización corriendo
 MAXIMIZAR_VENTANA = True       # True: maximiza el navegador y la basket, para que Pega muestre todos los dropdowns
-SCROLL_PASO_PX = 400           # cuánto baja la grilla de la basket en cada paso al buscar un JPV
-SCROLL_MAX_PASOS = 60          # máximo de pasos hacia abajo por pasada (si no aparece, se omite la fila)
+SCROLL_PASO_PX = 150           # cuánto baja la grilla en cada paso chico al buscar un JPV
+SCROLL_ESPERA_MS = 300         # pausa después de cada paso de scroll, para que Pega renderice las filas
+SCROLL_MAX_PASOS = 400         # tope de seguridad de pasos por página (el recorrido termina solo al llegar al final)
+MAX_PAGINAS_BASKET = 20        # si la grilla pagina (Next), cuántas páginas revisa como máximo
+SIGUIENTE_PAGINA_SELECTORES = (  # botones de página siguiente, probados en orden
+    'role=button[name=/^(next|siguiente)/i] >> visible=true',
+    '[aria-label*="Next" i] >> visible=true',
+    '[title*="Next" i] >> visible=true',
+)
 STEP_PAUSE_MS = 500            # pausa breve entre pasos
 PAUSE_BETWEEN_ROWS_MS = 1500   # pausa entre una fila y la siguiente
 SALIDA_CSV = "resultados.csv"
@@ -174,10 +181,11 @@ def maximizar_ventana(page: Page) -> None:
         log.warning("No pude maximizar la ventana (%s). Sigo igual.", exc)
 
 
-def desplazar_grillas(page: Page, pixeles=None) -> int:
+def desplazar_grillas(page: Page, pixeles=None) -> float:
     """Desplaza por código todos los contenedores con scroll de la página.
 
-    Con pixeles=None los lleva al inicio. Devuelve cuántos contenedores con scroll encontró.
+    Con pixeles=None los lleva al inicio. Devuelve cuántos píxeles se movió en total.
+    Si devuelve 0, la grilla ya está al final (o no hay nada para desplazar).
     No depende de dónde está el mouse, a diferencia de la rueda.
     """
     return page.evaluate(
@@ -186,11 +194,16 @@ def desplazar_grillas(page: Page, pixeles=None) -> int:
                 const estilo = getComputedStyle(e);
                 return /(auto|scroll)/.test(estilo.overflowY) && e.scrollHeight > e.clientHeight;
             });
+            let movido = 0;
             for (const e of contenedores) {
-                e.scrollTop = (pixeles === null) ? 0 : e.scrollTop + pixeles;
+                const antes = e.scrollTop;
+                e.scrollTop = (pixeles === null) ? 0 : antes + pixeles;
+                movido += Math.abs(e.scrollTop - antes);
             }
+            const yAntes = window.scrollY;
             if (pixeles === null) { window.scrollTo(0, 0); } else { window.scrollBy(0, pixeles); }
-            return contenedores.length;
+            movido += Math.abs(window.scrollY - yAntes);
+            return movido;
         }""",
         pixeles,
     )
@@ -208,23 +221,98 @@ def link_jpv_visible(basket: Page, jpv: str):
     return None
 
 
-def buscar_jpv_en_basket(basket: Page, jpv: str):
-    """Busca el link visible del JPV en la grilla de la basket, bajando con la rueda si hace falta.
+def ir_a_siguiente_pagina(basket: Page) -> bool:
+    """Si la grilla pagina, hace clic en Next. Devuelve True si encontró y pulsó el botón."""
+    for selector in SIGUIENTE_PAGINA_SELECTORES:
+        boton = basket.locator(selector)
+        if boton.count() > 0:
+            boton.first.click()
+            basket.wait_for_timeout(STEP_PAUSE_MS)
+            return True
+    return False
 
-    Primero busca desde la posición actual y después desde el inicio. Devuelve el locator
-    del link o None si no aparece.
+
+def buscar_jpv_en_basket(basket: Page, jpv: str):
+    """Busca el link visible del JPV en la grilla de la basket.
+
+    Por cada página: lleva la grilla al inicio y baja en pasos chicos (SCROLL_PASO_PX). Después
+    de cada paso revisa si el link del JPV está a la vista. Sigue hasta que la grilla ya no se
+    mueve, es decir, hasta cubrir todo el scroll. Si el texto del JPV existe pero no está a la
+    vista, lo trae con scroll_into_view. Si no aparece y la grilla tiene botón Next, pasa a la
+    página siguiente. Devuelve el locator del link o None.
     """
-    for pasada in range(2):
-        if pasada == 1:
-            desplazar_grillas(basket, None)
-            basket.wait_for_timeout(300)
+    for _ in range(MAX_PAGINAS_BASKET):
+        desplazar_grillas(basket, None)
+        basket.wait_for_timeout(SCROLL_ESPERA_MS)
         for _ in range(SCROLL_MAX_PASOS):
-            link = link_jpv_visible(basket, jpv)
+            link = link_o_traerlo(basket, jpv)
             if link is not None:
                 return link
-            desplazar_grillas(basket, SCROLL_PASO_PX)
-            basket.wait_for_timeout(300)
+            movido = desplazar_grillas(basket, SCROLL_PASO_PX)
+            basket.wait_for_timeout(SCROLL_ESPERA_MS)
+            if movido == 0:
+                break  # llegó al final de la grilla: ya revisó todo lo visible en este recorrido
+        if not ir_a_siguiente_pagina(basket):
+            break
     return link_jpv_visible(basket, jpv)
+
+
+def link_o_traerlo(basket: Page, jpv: str):
+    """Devuelve el link visible del JPV. Si el texto existe pero está fuera de la vista, lo trae."""
+    link = link_jpv_visible(basket, jpv)
+    if link is not None:
+        return link
+    texto = basket.get_by_text(jpv, exact=True)
+    if texto.count() > 0:
+        try:
+            texto.first.scroll_into_view_if_needed(timeout=PEGA_TIMEOUT_MS)
+        except PlaywrightTimeoutError:
+            pass
+        return link_jpv_visible(basket, jpv)
+    return None
+
+
+def diagnosticar_basket(basket: Page, jpv: str) -> str:
+    """Guarda diagnostico_basket.txt y error_fila_basket_diagnostico.png con la estructura de la grilla.
+
+    No guarda el contenido de las filas: solo contenedores con scroll, contadores y textos de paginación.
+    """
+    info = basket.evaluate(
+        """() => {
+            const es = [...document.querySelectorAll('*')];
+            const contenedores = es.filter(e => {
+                const s = getComputedStyle(e);
+                return /(auto|scroll)/.test(s.overflowY) && e.scrollHeight > e.clientHeight;
+            }).map(e => `${e.tagName} clase='${String(e.className).slice(0, 60)}' ` +
+                        `scrollTop=${Math.round(e.scrollTop)} scrollHeight=${e.scrollHeight} ` +
+                        `clientHeight=${e.clientHeight}`);
+            const paginacion = es.filter(e => e.children.length === 0 &&
+                /\\d+\\s*[-–]\\s*\\d+\\s*(de|of)\\s*\\d+/i.test(e.textContent || ''))
+                .map(e => e.textContent.trim().slice(0, 40)).slice(0, 5);
+            return {
+                contenedores: contenedores,
+                filas: document.querySelectorAll('[role=row], tr').length,
+                iframes: document.querySelectorAll('iframe').length,
+                paginacion: paginacion,
+                botonesNext: document.querySelectorAll('[aria-label*="Next" i], [title*="Next" i]').length,
+            };
+        }"""
+    )
+    lineas = [
+        f"Coincidencias del JPV en el DOM: {basket.get_by_text(jpv, exact=True).count()}",
+        f"Coincidencias del JPV visibles: {basket.locator(f'text=\"{jpv}\" >> visible=true').count()}",
+        f"Filas (role=row o tr): {info['filas']}",
+        f"Iframes: {info['iframes']}",
+        f"Textos de paginación: {info['paginacion'] or 'ninguno'}",
+        f"Botones Next: {info['botonesNext']}",
+        "Contenedores con scroll:",
+        *[f"  {c}" for c in info["contenedores"]],
+    ]
+    texto = "\n".join(lineas)
+    with open("diagnostico_basket.txt", "w", encoding="utf-8") as archivo:
+        archivo.write(texto + "\n")
+    basket.screenshot(path="error_fila_basket_diagnostico.png")
+    return texto
 
 
 def abrir_basket(main_page: Page) -> Page:
@@ -336,10 +424,10 @@ def reasignar_fila(main_page: Page, basket: Page, jpv: str, destino: str, dry_ru
     basket.bring_to_front()
     link_jpv = buscar_jpv_en_basket(basket, jpv)
     if link_jpv is None:
-        en_pagina = basket.get_by_text(jpv, exact=True).count()
+        diagnosticar_basket(basket, jpv)
         raise SkipRow(
-            f"el JPV no aparece visible en la basket, ni bajando ni desde el inicio "
-            f"(coincidencias en la página: {en_pagina})"
+            "el JPV no aparece visible en la basket, ni bajando, ni desde el inicio, ni en las "
+            "páginas siguientes. Diagnóstico en diagnostico_basket.txt"
         )
     link_jpv.click()
     main_page.bring_to_front()
