@@ -99,7 +99,7 @@ Estados: `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (owner distinto de `FX12
 - Case owner (2026-11-18): el valor que tiene que figurar en el caso para reasignarlo pasó a ser `FX1213`. Antes se había definido como `TSFX1213`.
 - Criterio de omisión (2026-11-18): si el JPV no aparece en la basket, la fila queda `OMITIDA` y el script sigue con la siguiente.
 - Login y basket automáticos (2026-11-18): el script hace los clicks de SSO, espera el Enter después del login y abre la basket (My teams > View Queue for). `BASKET_QUEUE_VALUE = "WDPCTSXWRKFX1213"`, confirmado el 2026-11-18.
-- `WORK_QUEUE_SELECTOR = "label=Work Queue"`.
+- `WORK_QUEUE_SELECTOR = 'internal:label="Work Queue"i'` (mismo criterio que `get_by_label` del codegen).
 
 ## 5. mails-sin-responder
 
