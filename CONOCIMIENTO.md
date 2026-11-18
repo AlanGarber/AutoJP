@@ -2,7 +2,7 @@
 
 Documento de contexto para retomar el trabajo en este repo desde cualquier sesión de Claude (incluida la de la VDI), sin depender del historial de chats. Resume las decisiones, el estado de cada automatización y los pendientes.
 
-Fecha de corte: 2026-11-18. Estado del código: `main` en el commit `97855b4`. Si el código cambió después, manda el código: este documento puede quedar desactualizado.
+Fecha de corte: 2026-11-18. Estado del código: `main` en el commit `51546b2`. Si el código cambió después, manda el código: este documento puede quedar desactualizado.
 
 Datos sensibles: no agregar acá nombres de compañeros, correos, IDs de casos ni rutas personales. Los valores de negocio están en la sección `CONFIGURACIÓN` de cada script.
 
@@ -17,7 +17,7 @@ Automatizar tareas repetitivas del flujo diario del equipo, con UI web (Playwrig
 | Carpeta | Qué hace | Estado |
 |---|---|---|
 | `asignar-casos-empleados` | Asigna casos a empleados en Pega desde un XLSX, fila por fila. | Código completo, con selectores ajustados con codegen y DevTools. Hay un problema abierto con el botón Actions (ver sección 9). |
-| `reasignar-casos-pega-lob` | Reasigna casos de Pega a la work queue de cada LOB, desde un XLSX. | Borrador. `DRY_RUN = True`. Varios valores `PLACEHOLDER` sin confirmar. |
+| `reasignar-casos-pega-lob` | Reasigna casos de Pega a la work queue de cada LOB, desde un XLSX. | Borrador, en pruebas. `DRY_RUN = True`. Caso especial "To check" en pausa desde 2026-11-18. Varios valores `PLACEHOLDER` sin confirmar. |
 | `mails-sin-responder` | Reporte diario de mails de casillas compartidas de Outlook que nadie del equipo respondió. | En uso. Falta completar `$Equipo`. Solo lectura. |
 
 ## 3. asignar-casos-empleados
@@ -76,15 +76,15 @@ Reasigna cada caso a la work queue que corresponde a su LOB.
 ### Reglas de negocio
 - `Corp&FI` → work queue `WDPCTSTWRKFX12`.
 - `Retail` → work queue `WDPCTSTWRKFX13`.
-- **Caso especial:** si A es `To check` **y** B es `FX Retail Inv` a la vez, va a `WDPCTSTWRKFX13`. Si solo se cumple una de las dos, la fila se omite.
+- **Caso especial (en pausa desde 2026-11-18):** si A es `To check` **y** B es `FX Retail Inv` a la vez, iría a `WDPCTSTWRKFX13`. Mientras esté en pausa (`CASO_ESPECIAL_ACTIVO = False`), esas filas se omiten. Si solo se cumple una de las dos, la fila se omite.
 - El caso solo se reasigna si su case owner es exactamente `TSFX1213`. Hoy la validación busca ese valor como palabra completa dentro del panel Work; falta pasarla a igualdad exacta con el locator del campo **Case owner**.
 
 ### Flujo
-1. Hace click en el JPV dentro de la basket. La basket es un popup (`window.opener` presente).
+1. La basket se abre como popup desde el dropdown **View Queue for** de la ventana principal (confirmado con codegen el 2026-11-18). Hace click en el JPV dentro de la basket.
 2. El caso se abre en la ventana principal de Pega, dentro de iframes `PegaGadget*`.
 3. Pestaña Work, verificación del owner.
-4. **Actions** > **Reassign**.
-5. Elige la work queue en el dropdown **Work Queue**.
+4. **Actions** > **Reassign** (la opción está dentro del menú Actions, es un menuitem).
+5. Elige la work queue en el dropdown **Work Queue** (`label=Work Queue`, por `value`).
 6. **Submit** y **Close**. En modo simulación, **Close** y **Discard** (no se guarda nada).
 
 ### Salida: `resultados.csv`
@@ -92,7 +92,8 @@ Estados: `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (owner distinto de `TSFX
 
 ### Configuración
 - `DRY_RUN = True`: el script arranca en simulación. Solo cambiar a `False` después de validar selectores y reglas.
-- `JPV_LINK_NTH = 2`: índice del link del JPV en la basket, según codegen.
+- `JPV_LINK_NTH = 2`: índice del link del JPV en la basket, según codegen. Confirmado el 2026-11-18.
+- `CASO_ESPECIAL_ACTIVO = False`: pausa del caso "To check". Decidido el 2026-11-18 para testear.
 - `WORK_QUEUE_SELECTOR = "label=Work Queue"`.
 
 ## 5. mails-sin-responder
@@ -162,6 +163,7 @@ Al revisar un caso concreto se vio que casi todas las respuestas del equipo lleg
 - **Login:** se agregaron los clicks automáticos de SSO. Usuario, contraseña y MFA los completa la persona.
 - **Ritmo:** se agregó una pausa entre filas porque el script iba demasiado rápido.
 - **Pega:** se diagnosticó la estructura. La basket es un popup y el caso se abre en la ventana principal, con los controles dentro de iframes `PegaGadget*`. Por eso el script trabaja con dos páginas.
+- **2026-11-18, reasignar-casos-pega-lob:** se confirmó con codegen el flujo de work queue. Retail → `WDPCTSTWRKFX13` y el índice del JPV en la basket quedaron confirmados. Se decidió que el caso especial "To check" queda en pausa para testear el resto del flujo.
 - **Outlook:** `mails-sin-responder` se creó y se revisó su código. Quedó como solo lectura.
 - **Instrucciones para el equipo:** se quitó la opción de ZIP. Se usa solo `git clone`.
 
@@ -174,7 +176,7 @@ Al revisar un caso concreto se vio que casi todas las respuestas del equipo lleg
 ### reasignar-casos-pega-lob
 - Cambiar la validación del owner a igualdad exacta, con el locator del campo **Case owner** en la pestaña Work.
 - Confirmar los selectores `PLACEHOLDER` contra la app real.
-- Confirmar el valor de la work queue del caso especial (TSFX13) y si la validación de owner aplica también a ese caso.
+- Caso especial "To check" en pausa (`CASO_ESPECIAL_ACTIVO = False`). Antes de reactivarlo, confirmar que TSFX13 = `WDPCTSTWRKFX13` y si la validación de owner aplica también a ese caso.
 - Probar con `DRY_RUN = True` y recién después pasar a `False`.
 
 ### mails-sin-responder
