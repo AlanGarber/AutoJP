@@ -2,6 +2,8 @@
 
 Repo de automatizaciones de UI para el flujo diario del equipo. Todo el contenido, comentarios y documentación están en español (rioplatense, con voseo). Los nombres de variables y funciones de Python van en inglés, como en el script actual.
 
+Antes de tocar cualquier automatización, leer `CONOCIMIENTO.md`: contiene las decisiones tomadas, el estado de cada automatización y los pendientes.
+
 ## Estructura
 
 - `README.md` (raíz): índice de automatizaciones. Hay que sumar cada nueva a su tabla.
