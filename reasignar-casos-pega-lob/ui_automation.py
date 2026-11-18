@@ -73,7 +73,7 @@ WORK_TAB = 'text="Work" >> visible=true'                          # pestaña Wor
 WORK_PANEL = "role=tabpanel[name='Work'] >> visible=true"         # contenido de Work: ahí figura el case owner
 ACTIONS_MENU = "role=button[name='Actions'] >> visible=true"
 REASSIGN_OPTION = "role=menuitem[name='Reassign'] >> visible=true"
-WORK_QUEUE_SELECTOR = "label=Work Queue"                          # dropdown de la work queue destino
+WORK_QUEUE_SELECTOR = 'internal:label="Work Queue"i'              # dropdown de la work queue destino (igual que get_by_label del codegen)
 SUBMIT_BUTTON = "role=button[name='Submit'] >> visible=true"
 CLOSE_BUTTON = "role=button[name='Close'] >> visible=true"
 DISCARD_BUTTON = "role=button[name='Discard'] >> visible=true"    # confirma el descarte en DRY_RUN
@@ -136,15 +136,38 @@ def login_sso(page: Page) -> None:
     page.wait_for_timeout(STEP_PAUSE_MS)
 
 
+def diagnosticar_dropdowns(page: Page) -> str:
+    """Lista los dropdowns (select) de cada frame con su label, para ver cómo se llaman en pantalla."""
+    partes = []
+    for frame in page.frames:
+        try:
+            labels = frame.evaluate(
+                """() => [...document.querySelectorAll('select')].map(s => {
+                    const l = (s.labels && s.labels[0]) ? s.labels[0].textContent : (s.getAttribute('aria-label') || s.name || s.id);
+                    return (l || '').trim().slice(0, 60);
+                })"""
+            )
+        except Exception:
+            continue
+        if labels:
+            partes.append(f"  frame '{frame.name or 'principal'}': {labels}")
+    return "\n".join(partes) or "  ningún dropdown (select) en ningún frame"
+
+
 def abrir_basket(main_page: Page) -> Page:
     """My teams > View Queue for. La basket se abre como popup y se devuelve esa página."""
     main_page.get_by_role("menuitem", name=re.compile(BASKET_MENU_ITEM_NAME)).click()
     main_page.wait_for_timeout(STEP_PAUSE_MS)
-    selector = f"label={BASKET_QUEUE_LABEL}"
+    selector = f'internal:label="{BASKET_QUEUE_LABEL}"i'
     with main_page.expect_popup() as popup_info:
         frame = buscar_frame(main_page, selector, PEGA_TIMEOUT_MS)
         if frame is None:
-            raise RuntimeError(f"no apareció el dropdown {BASKET_QUEUE_LABEL}")
+            main_page.screenshot(path="error_abrir_basket.png")
+            raise RuntimeError(
+                f"no apareció el dropdown '{BASKET_QUEUE_LABEL}'. Dropdowns encontrados:\n"
+                + diagnosticar_dropdowns(main_page)
+                + "\nCaptura: error_abrir_basket.png"
+            )
         frame.locator(selector).select_option(value=BASKET_QUEUE_VALUE)
     basket = popup_info.value
     basket.wait_for_load_state()
