@@ -17,7 +17,7 @@ Automatizar tareas repetitivas del flujo diario del equipo, con UI web (Playwrig
 | Carpeta | Qué hace | Estado |
 |---|---|---|
 | `asignar-casos-empleados` | Asigna casos a empleados en Pega desde un XLSX, fila por fila. | Código completo, con selectores ajustados con codegen y DevTools. Hay un problema abierto con el botón Actions (ver sección 9). |
-| `reasignar-casos-pega-lob` | Reasigna casos de Pega a la work queue de cada LOB, desde un XLSX. | Borrador, en pruebas. `DRY_RUN = True`. Caso especial "To check" en pausa desde 2026-11-18. Varios valores `PLACEHOLDER` sin confirmar. |
+| `reasignar-casos-pega-lob` | Reasigna casos de Pega a la work queue de cada LOB, desde un XLSX. | Borrador, en uso. `DRY_RUN = False` desde 2026-11-18 (reasigna de verdad). Caso especial "To check" en pausa desde 2026-11-18. Varios valores `PLACEHOLDER` sin confirmar. |
 | `mails-sin-responder` | Reporte diario de mails de casillas compartidas de Outlook que nadie del equipo respondió. | En uso. Falta completar `$Equipo`. Solo lectura. |
 
 ## 3. asignar-casos-empleados
@@ -91,7 +91,7 @@ Reasigna cada caso a la work queue que corresponde a su LOB.
 Estados: `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (owner distinto de `FX1213`, sin work queue según A y B, o JPV vacío) y `NO PROCESADA`.
 
 ### Configuración
-- `DRY_RUN = True`: el script arranca en simulación. Solo cambiar a `False` después de validar selectores y reglas.
+- `DRY_RUN = False` desde 2026-11-18: el script hace Submit y Close de verdad. Antes estaba en `True` (Close y Discard). Se cambió a pedido del usuario, con los selectores PLACEHOLDER todavía sin validar.
 - `JPV_LINK_NTH = 2`: índice del link del JPV en la basket, según codegen. Confirmado el 2026-11-18.
 - `CASO_ESPECIAL_ACTIVO = False`: pausa del caso "To check". Decidido el 2026-11-18 para testear.
 - Ventana maximizada (2026-11-18): con el navegador en tamaño chico no aparece el dropdown **View Queue for**. Por eso el script abre el navegador maximizado (`MAXIMIZAR_VENTANA = True`).
@@ -182,7 +182,7 @@ Al revisar un caso concreto se vio que casi todas las respuestas del equipo lleg
 - Cambiar la validación del owner a igualdad exacta, con el locator del campo **Case owner** en la pestaña Work.
 - Confirmar los selectores `PLACEHOLDER` contra la app real.
 - Caso especial "To check" en pausa (`CASO_ESPECIAL_ACTIVO = False`). Antes de reactivarlo, confirmar que TSFX13 = `WDPCTSTWRKFX13` y si la validación de owner aplica también a ese caso.
-- Probar con `DRY_RUN = True` y recién después pasar a `False`.
+- Validar selectores y el campo Case owner en la VDI, con casos de prueba controlados (DRY_RUN ya está en `False`).
 
 ### mails-sin-responder
 - Completar `$Equipo` con los correos de quienes responden desde las casillas. Para copiarlos, abrir un mail de cada persona y tomar la dirección del campo "De" (no el nombre).
