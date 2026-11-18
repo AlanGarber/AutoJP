@@ -174,10 +174,26 @@ def maximizar_ventana(page: Page) -> None:
         log.warning("No pude maximizar la ventana (%s). Sigo igual.", exc)
 
 
-def mover_mouse_al_centro(page: Page) -> None:
-    """Pone el mouse en el centro de la página, para que la rueda baje la grilla."""
-    ancho, alto = page.evaluate("() => [window.innerWidth, window.innerHeight]")
-    page.mouse.move(ancho / 2, alto / 2)
+def desplazar_grillas(page: Page, pixeles=None) -> int:
+    """Desplaza por código todos los contenedores con scroll de la página.
+
+    Con pixeles=None los lleva al inicio. Devuelve cuántos contenedores con scroll encontró.
+    No depende de dónde está el mouse, a diferencia de la rueda.
+    """
+    return page.evaluate(
+        """(pixeles) => {
+            const contenedores = [...document.querySelectorAll('*')].filter(e => {
+                const estilo = getComputedStyle(e);
+                return /(auto|scroll)/.test(estilo.overflowY) && e.scrollHeight > e.clientHeight;
+            });
+            for (const e of contenedores) {
+                e.scrollTop = (pixeles === null) ? 0 : e.scrollTop + pixeles;
+            }
+            if (pixeles === null) { window.scrollTo(0, 0); } else { window.scrollBy(0, pixeles); }
+            return contenedores.length;
+        }""",
+        pixeles,
+    )
 
 
 def link_jpv_visible(basket: Page, jpv: str):
@@ -200,16 +216,13 @@ def buscar_jpv_en_basket(basket: Page, jpv: str):
     """
     for pasada in range(2):
         if pasada == 1:
-            mover_mouse_al_centro(basket)
-            for _ in range(3):
-                basket.mouse.wheel(0, -SCROLL_PASO_PX * 20)
-                basket.wait_for_timeout(200)
+            desplazar_grillas(basket, None)
+            basket.wait_for_timeout(300)
         for _ in range(SCROLL_MAX_PASOS):
             link = link_jpv_visible(basket, jpv)
             if link is not None:
                 return link
-            mover_mouse_al_centro(basket)
-            basket.mouse.wheel(0, SCROLL_PASO_PX)
+            desplazar_grillas(basket, SCROLL_PASO_PX)
             basket.wait_for_timeout(300)
     return link_jpv_visible(basket, jpv)
 
@@ -323,7 +336,11 @@ def reasignar_fila(main_page: Page, basket: Page, jpv: str, destino: str, dry_ru
     basket.bring_to_front()
     link_jpv = buscar_jpv_en_basket(basket, jpv)
     if link_jpv is None:
-        raise SkipRow("el JPV no aparece en la basket, ni bajando ni desde el inicio")
+        en_pagina = basket.get_by_text(jpv, exact=True).count()
+        raise SkipRow(
+            f"el JPV no aparece visible en la basket, ni bajando ni desde el inicio "
+            f"(coincidencias en la página: {en_pagina})"
+        )
     link_jpv.click()
     main_page.bring_to_front()
     main_page.wait_for_timeout(POST_OPEN_CASE_PAUSE_MS)
