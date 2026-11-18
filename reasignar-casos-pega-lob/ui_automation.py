@@ -79,6 +79,11 @@ CLOSE_BUTTON = "role=button[name='Close'] >> visible=true"
 DISCARD_BUTTON = "role=button[name='Discard'] >> visible=true"    # confirma el descarte en DRY_RUN
 PEGA_TIMEOUT_MS = 15000        # cuánto buscar un elemento dentro de los iframes de Pega
 
+# --- Login ---
+AUTO_SSO_CLICKS = True         # True: el script hace los clicks de SSO. Usuario, contraseña y MFA los completás vos.
+SSO_LINK_NAME = "Login with SSO"
+SSO_PROVIDER_NAME = "JPMorgan Chase (Default)"
+
 # --- Ejecución ---
 DRY_RUN = True                 # True: hace todo hasta Close y Discard, sin guardar. False: reasigna de verdad.
 BROWSER_CHANNEL = "msedge"     # "chrome" o "msedge": navegador ya instalado; None: Chromium de Playwright
@@ -115,6 +120,13 @@ def to_text(value) -> str:
 def contiene_valor(texto: str, valor: str) -> bool:
     """True si valor aparece como palabra completa: FX1213 no es FX12."""
     return re.search(rf"(?<![A-Za-z0-9]){re.escape(valor)}(?![A-Za-z0-9])", texto) is not None
+
+
+def login_sso(page: Page) -> None:
+    """Clicks de SSO. Usuario, contraseña y MFA los completa la persona."""
+    page.get_by_role("link", name=SSO_LINK_NAME, exact=True).click()
+    page.get_by_role("button", name=SSO_PROVIDER_NAME).click()
+    page.wait_for_timeout(STEP_PAUSE_MS)
 
 
 def normalizar(texto: str) -> str:
@@ -252,8 +264,10 @@ def main():
         context = browser.new_context()
         main_page = context.new_page()
         main_page.goto(APP_URL)
+        if AUTO_SSO_CLICKS:
+            login_sso(main_page)
 
-        input("Iniciá sesión, abrí la basket desde 'View Queue for' (popup) y después presioná Enter acá... ")
+        input("Completá usuario, contraseña y MFA, abrí la basket desde 'View Queue for' (popup) y después presioná Enter acá... ")
         basket = find_basket(context, main_page)
 
         for idx, (nro, lob, col_b, jpv) in enumerate(rows):

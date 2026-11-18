@@ -78,10 +78,11 @@ cd reasignar-casos-pega-lob
 python ui_automation.py datos.xlsx
 ```
 
-1. Se abre el navegador en Pega. Hacé el login (usuario, contraseña y MFA).
-2. Abrí la basket desde **View Queue for** (popup).
-3. Volvé a la terminal y presioná Enter.
-4. El script procesa cada fila.
+1. Se abre el navegador en Pega y el script hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). Con `AUTO_SSO_CLICKS = False` los hacés a mano.
+2. Completá usuario, contraseña y MFA en el navegador.
+3. Abrí la basket desde **View Queue for** (popup).
+4. Volvé a la terminal y presioná Enter.
+5. El script procesa cada fila.
 
 Al terminar:
 - `resultados.csv`: estado de cada fila. `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (case owner distinto de `TSFX1213`, sin work queue según A y B, o JPV vacío) o `NO PROCESADA` (la basket se cerró antes).
