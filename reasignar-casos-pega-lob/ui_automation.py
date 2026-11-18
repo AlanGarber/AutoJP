@@ -55,6 +55,8 @@ MAPA_LOB = {                   # LOB (columna A) -> value de la work queue en el
     "Retail": "WDPCTSTWRKFX13",
 }
 # Caso especial: se cumplen las dos condiciones a la vez (A y B) -> work queue destino.
+# EN PAUSA: con False, las filas "To check" se omiten. Cambiar a True para reactivarlo.
+CASO_ESPECIAL_ACTIVO = False
 CASO_ESPECIAL = {
     "lob": "To check",
     "col_b": "FX Retail Inv",
@@ -125,7 +127,11 @@ def destino_para(lob: str, col_b: str):
 
     El caso especial exige A y B a la vez. Si no se cumple, rige el mapeo de la columna A.
     """
-    if normalizar(lob) == normalizar(CASO_ESPECIAL["lob"]) and normalizar(col_b) == normalizar(CASO_ESPECIAL["col_b"]):
+    if (
+        CASO_ESPECIAL_ACTIVO
+        and normalizar(lob) == normalizar(CASO_ESPECIAL["lob"])
+        and normalizar(col_b) == normalizar(CASO_ESPECIAL["col_b"])
+    ):
         return CASO_ESPECIAL["destino"]
     for lob_mapeada, destino in MAPA_LOB.items():
         if normalizar(lob) == normalizar(lob_mapeada):
