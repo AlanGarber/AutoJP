@@ -27,6 +27,16 @@ Antes de tocar cualquier automatización, leer `CONOCIMIENTO.md`: contiene las d
 - **Datos sensibles:** los XLSX tienen assignees y JPV. No pegarlos en commits, issues ni respuestas a servicios externos. Los XLSX (`*.xlsx`), los archivos generados (`resultados.csv`, `error_fila_*.png`) y `config_local.py` están en `.gitignore` y no se suben.
 - **Credenciales:** nunca guardar usuarios, contraseñas, tokens ni cookies en el repo.
 
+## Conocimiento del proyecto
+
+- Todo conocimiento nuevo del proyecto se registra en `CONOCIMIENTO.md`, sin que el usuario lo pida. Incluye decisiones de negocio o diseño, cambios de estado de una automatización, descubrimientos sobre las apps (Pega, Outlook), pendientes nuevos o resueltos y preferencias de trabajo acordadas.
+- Antes de escribir, leer `CONOCIMIENTO.md` y actualizar la sección que corresponda, sin duplicar entradas. Reemplazar lo que quedó obsoleto.
+- Entradas en español rioplatense, cortas, con fecha `AAAA-MM-DD` en decisiones y cambios de estado.
+- Esta instrucción permanente del usuario autoriza commit y push de `CONOCIMIENTO.md` a `main` (fast-forward). No aplica a otros archivos: esos siguen necesitando pedido explícito.
+- No guardar en `CONOCIMIENTO.md` datos sensibles: nombres de compañeros, correos, IDs de casos, contenido de los XLSX, credenciales ni rutas personales. El repo puede ser público.
+- Solo registrar lo confirmado por el usuario o verificado en la app o en el código. No registrar charla, borradores ni hipótesis.
+- Si el repo no está disponible en la sesión, no guardar el conocimiento en el chat: avisar en una línea qué falta.
+
 ## Cómo agregar una automatización nueva
 
 1. Crear la carpeta con nombre descriptivo en minúsculas y guiones.
