@@ -94,6 +94,7 @@ BASKET_QUEUE_VALUE = "WDPCTSXWRKFX1213"               # basket a abrir (confirma
 DRY_RUN = True                 # True: hace todo hasta Close y Discard, sin guardar. False: reasigna de verdad.
 BROWSER_CHANNEL = "msedge"     # "chrome" o "msedge": navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False               # False: ves la automatización corriendo
+MAXIMIZAR_VENTANA = True       # True: abre el navegador maximizado, para que Pega muestre todos los dropdowns
 STEP_PAUSE_MS = 500            # pausa breve entre pasos
 PAUSE_BETWEEN_ROWS_MS = 1500   # pausa entre una fila y la siguiente
 SALIDA_CSV = "resultados.csv"
@@ -284,8 +285,10 @@ def main():
     resultados = []
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS)
-        context = browser.new_context()
+        args = ["--start-maximized"] if MAXIMIZAR_VENTANA else []
+        browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS, args=args)
+        # no_viewport: la página usa el tamaño real de la ventana, así que queda maximizada
+        context = browser.new_context(no_viewport=MAXIMIZAR_VENTANA)
         main_page = context.new_page()
         main_page.goto(APP_URL)
         if AUTO_SSO_CLICKS:
