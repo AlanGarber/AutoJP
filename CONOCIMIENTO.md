@@ -77,7 +77,7 @@ Reasigna cada caso a la work queue que corresponde a su LOB.
 - `Corp&FI` → work queue `WDPCTSTWRKFX12`.
 - `Retail` → work queue `WDPCTSTWRKFX13`.
 - **Caso especial (en pausa desde 2026-11-18):** si A es `To check` **y** B es `FX Retail Inv` a la vez, iría a `WDPCTSTWRKFX13`. Mientras esté en pausa (`CASO_ESPECIAL_ACTIVO = False`), esas filas se omiten. Si solo se cumple una de las dos, la fila se omite.
-- El caso solo se reasigna si su case owner es exactamente `TSFX1213`. Hoy la validación busca ese valor como palabra completa dentro del panel Work; falta pasarla a igualdad exacta con el locator del campo **Case owner**.
+- El caso solo se reasigna si su case owner es exactamente `FX1213`. Hoy la validación busca ese valor como palabra completa dentro del panel Work; falta pasarla a igualdad exacta con el locator del campo **Case owner**.
 
 ### Flujo
 1. La basket se abre como popup desde el dropdown **View Queue for** de la ventana principal (confirmado con codegen el 2026-11-18). Hace click en el JPV dentro de la basket.
@@ -88,7 +88,7 @@ Reasigna cada caso a la work queue que corresponde a su LOB.
 6. **Submit** y **Close**. En modo simulación, **Close** y **Discard** (no se guarda nada).
 
 ### Salida: `resultados.csv`
-Estados: `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (owner distinto de `TSFX1213`, sin work queue según A y B, o JPV vacío) y `NO PROCESADA`.
+Estados: `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (owner distinto de `FX1213`, sin work queue según A y B, o JPV vacío) y `NO PROCESADA`.
 
 ### Configuración
 - `DRY_RUN = True`: el script arranca en simulación. Solo cambiar a `False` después de validar selectores y reglas.
@@ -96,6 +96,7 @@ Estados: `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (owner distinto de `TSFX
 - `CASO_ESPECIAL_ACTIVO = False`: pausa del caso "To check". Decidido el 2026-11-18 para testear.
 - Ventana maximizada (2026-11-18): con el navegador en tamaño chico no aparece el dropdown **View Queue for**. Por eso el script abre el navegador maximizado (`MAXIMIZAR_VENTANA = True`).
 - Grilla de la basket (2026-11-18): tiene muchos JPV y hay que bajar con la rueda para verlos. El click va sobre el link visible del JPV (no sobre el elemento número 2, que puede no ser el visible). El script busca bajando y, si no aparece, desde el inicio. La basket se maximiza por CDP (`Browser.setWindowBounds`).
+- Case owner (2026-11-18): el valor que tiene que figurar en el caso para reasignarlo pasó a ser `FX1213`. Antes se había definido como `TSFX1213`.
 - Criterio de omisión (2026-11-18): si el JPV no aparece en la basket, la fila queda `OMITIDA` y el script sigue con la siguiente.
 - Login y basket automáticos (2026-11-18): el script hace los clicks de SSO, espera el Enter después del login y abre la basket (My teams > View Queue for). `BASKET_QUEUE_VALUE = "WDPCTSXWRKFX1213"`, confirmado el 2026-11-18.
 - `WORK_QUEUE_SELECTOR = "label=Work Queue"`.
