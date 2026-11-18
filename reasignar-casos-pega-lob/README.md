@@ -12,7 +12,7 @@ Reasigna casos de Pega a la work queue que corresponde a su LOB, a partir de un 
 
 Todo está en un solo archivo: `ui_automation.py`.
 
-> **Estado: borrador.** Los valores marcados `PLACEHOLDER` en el script todavía no están confirmados. Por eso el script arranca con `DRY_RUN = True`.
+> **Estado: borrador.** Los valores marcados `PLACEHOLDER` en el script todavía no están confirmados. Desde 2026-11-18 el script arranca con `DRY_RUN = False`: hace Submit y Close de verdad.
 
 ## 1. Instalación
 
@@ -88,7 +88,7 @@ Al terminar:
 - `resultados.csv`: estado de cada fila. `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (case owner distinto de `FX1213`, JPV que no aparece en la basket, sin work queue según A y B, o JPV vacío) o `NO PROCESADA` (la basket se cerró antes). Si el JPV no aparece en la basket, la fila se omite y el script sigue con la siguiente.
 - `error_fila_N.png`: captura de la ventana principal en la fila N, si falló.
 
-## Pendiente antes de usar `DRY_RUN = False`
+## Pendiente (validar en la VDI)
 
 
 - Cambiar la validación del case owner por igualdad exacta, con el locator del campo **Case owner** en la pestaña Work. Hoy busca `FX1213` como palabra completa dentro de todo el panel.

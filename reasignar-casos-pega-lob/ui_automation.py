@@ -16,7 +16,7 @@ desde "View Queue for" (popup) y después volvés a la terminal y presionás Ent
 Uso:
     python ui_automation.py datos.xlsx
 
-Por defecto corre con DRY_RUN = True. Genera resultados.csv y una captura (error_fila_N.png)
+Por defecto corre con DRY_RUN = False (reasigna de verdad). Genera resultados.csv y una captura (error_fila_N.png)
 por cada fila que falle.
 """
 
@@ -94,7 +94,7 @@ BASKET_QUEUE_LABEL = "View Queue for"                 # dropdown que abre la bas
 BASKET_QUEUE_VALUE = "WDPCTSXWRKFX1213"               # basket a abrir (confirmado)
 
 # --- Ejecución ---
-DRY_RUN = True                 # True: hace todo hasta Close y Discard, sin guardar. False: reasigna de verdad.
+DRY_RUN = False                # True: hace todo hasta Close y Discard, sin guardar. False: reasigna de verdad.
 BROWSER_CHANNEL = "msedge"     # "chrome" o "msedge": navegador ya instalado; None: Chromium de Playwright
 HEADLESS = False               # False: ves la automatización corriendo
 MAXIMIZAR_VENTANA = True       # True: maximiza el navegador y la basket, para que Pega muestre todos los dropdowns
