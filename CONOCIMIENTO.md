@@ -92,6 +92,7 @@ Estados: `SIMULADO` (DRY_RUN), `OK`, `ERROR`, `OMITIDA` (owner distinto de `FX12
 
 ### Configuración
 - `DRY_RUN = False` desde 2026-11-18: el script hace Submit y Close de verdad. Antes estaba en `True` (Close y Discard). Se cambió a pedido del usuario, con los selectores PLACEHOLDER todavía sin validar.
+- `ZOOM_BASKET = 0.5` (2026-11-18): la basket se achica al 50% por CSS al cargarla, para que entren más filas y el scroll sea más corto. Alan confirmó que el zoom manual funciona. Si se hace Ctrl + - a mano en el mismo sitio, el efecto se suma: poner `None`.
 - `JPV_LINK_NTH = 2`: índice del link del JPV en la basket, según codegen. Confirmado el 2026-11-18.
 - `CASO_ESPECIAL_ACTIVO = False`: pausa del caso "To check". Decidido el 2026-11-18 para testear.
 - Ventana maximizada (2026-11-18): con el navegador en tamaño chico no aparece el dropdown **View Queue for**. Por eso el script abre el navegador maximizado (`MAXIMIZAR_VENTANA = True`).
