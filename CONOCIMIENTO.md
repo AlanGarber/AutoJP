@@ -29,7 +29,7 @@ Por cada fila del XLSX, busca el JPV en la search bar y reasigna el caso al assi
 - Columna A: assignee (persona a la que se asigna).
 - Columna B: JPV (identificador del caso, lo que se busca).
 - Columna C: equipo. Solo se procesan los equipos de `TEAMS_ALLOWED`; el resto queda `OMITIDA`.
-- Columna D: tipo de caso.
+- Columna D: tipo de caso. Los tipos `Miscellaneous` y `OFAC` solo se procesan si el equipo es AUTOCV (regla del 2026-11-19); para otros equipos la fila queda `OMITIDA` sin tocar el caso.
 - Las demás columnas se ignoran.
 - Hoja: la primera, salvo que `XLSX_SHEET` indique otra. Con encabezado (`XLSX_HAS_HEADER`).
 
@@ -172,6 +172,7 @@ Al revisar un caso concreto se vio que casi todas las respuestas del equipo lleg
 - **Ritmo:** se agregó una pausa entre filas porque el script iba demasiado rápido.
 - **Pega:** se diagnosticó la estructura. La basket es un popup y el caso se abre en la ventana principal, con los controles dentro de iframes `PegaGadget*`. Por eso el script trabaja con dos páginas.
 - **2026-11-18, reasignar-casos-pega-lob:** se confirmó con codegen el flujo de work queue. Retail → `WDPCTSRWRKFX13` y el índice del JPV en la basket quedaron confirmados. Se decidió que el caso especial "To check" queda en pausa para testear el resto del flujo.
+- **2026-11-19, asignar-casos-empleados:** los tipos `Miscellaneous` y `OFAC` solo se reasignan si el equipo es AUTOCV. Para otros equipos, la fila se omite sin tocar el caso. Pedido de Alan.
 - **Outlook:** `mails-sin-responder` se creó y se revisó su código. Quedó como solo lectura.
 - **Instrucciones para el equipo:** se quitó la opción de ZIP. Se usa solo `git clone`.
 
