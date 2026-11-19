@@ -6,6 +6,7 @@ reporte_no_respondidos_*.html
 
 # Archivos de datos (no se suben al repo)
 *.xlsx
+*.txt
 
 # Configuración local con la URL real de la app
 config_local.py
