@@ -551,7 +551,7 @@ function Write-Report($rows, $stats, $day, $folder) {
   header.encabezado .fecha { margin: 6px 0 0; color: #d6e4ef; font-size: 16px; }
   .boton-tema { padding: 9px 16px; border: 1px solid #c9dbea; background: transparent; color: #f4f7fa; border-radius: 999px; cursor: pointer; font: inherit; font-size: 15px; }
   .boton-tema:hover { background: rgba(255,255,255,.12); }
-  main { max-width: 1400px; margin: 0 auto; padding: 26px 36px 48px; }
+  main { margin: 0; padding: 26px 28px 48px; }
   h2 { font-size: 21px; font-weight: 600; margin: 30px 0 14px; }
   .tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; }
   .tarjeta { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; padding: 18px 20px; }
@@ -572,15 +572,15 @@ function Write-Report($rows, $stats, $day, $folder) {
   .contador { margin: 14px 2px 6px; color: var(--gris); font-size: 15px; }
   .leyenda { margin: 6px 2px 12px; color: var(--gris); font-size: 15px; }
   .leyenda .horas { margin-right: 4px; }
-  .tabla-wrap { overflow: auto; max-height: 66vh; border: 1px solid var(--borde); border-radius: 12px; background: var(--superficie); }
-  table { border-collapse: collapse; width: 100%; font-size: 16px; }
-  thead th { position: sticky; top: 0; background: var(--cabecera); text-align: left; font-weight: 600; font-size: 15px; padding: 13px 14px; border-bottom: 1px solid var(--borde); white-space: nowrap; z-index: 1; }
+  .tabla-wrap { overflow-x: auto; overflow-y: auto; max-height: 66vh; width: 100%; border: 1px solid var(--borde); border-radius: 12px; background: var(--superficie); }
+  table { border-collapse: collapse; width: 100%; font-size: 16px; table-layout: auto; }
+  thead th { position: sticky; top: 0; background: var(--cabecera); text-align: left; font-weight: 600; font-size: 15px; padding: 13px 14px; border-bottom: 1px solid var(--borde); z-index: 1; }
   td { padding: 13px 14px; border-bottom: 1px solid var(--borde); vertical-align: top; line-height: 1.5; }
   tr.par td { background: var(--superficie-2); }
   tbody tr:hover td { background: var(--hover); }
   .nowrap { white-space: nowrap; }
   .email { color: var(--gris); word-break: break-all; font-size: 15px; }
-  .asunto { min-width: 280px; }
+  .asunto { min-width: 200px; }
   .num-col { text-align: right; white-space: nowrap; }
   .badge { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 14px; font-weight: 600; white-space: nowrap; }
   .badge-para { background: var(--para-bg); color: var(--para-txt); }
