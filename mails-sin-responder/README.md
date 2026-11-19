@@ -53,7 +53,7 @@ ejecutar.bat -Fecha 2026-11-12
 
 Al terminar se abre el reporte en el navegador y quedan dos archivos en la carpeta:
 
-- `reporte_no_respondidos_AAAA-MM-DD.html`: resumen por casilla y detalle, para leer.
+- `reporte_no_respondidos_AAAA-MM-DD.html`: resumen por casilla y detalle, para leer. Tiene botones para filtrar por *Para nosotros*, *En copia* o *Lista/otro*, por casilla y por carpeta.
 - `reporte_no_respondidos_AAAA-MM-DD.csv`: el detalle, para abrir en Excel.
 
 Columnas del detalle: casilla, hora de recepción, remitente, email, asunto, carpeta, si la casilla estaba en Para/CC, horas sin respuesta y cuántos mails del hilo quedaron sin responder.

@@ -356,6 +356,99 @@ function New-ReportRow($r, $countInThread, $reference, $mailboxName) {
 }
 
 
+function HtmlText($texto) {
+    return [System.Net.WebUtility]::HtmlEncode([string]$texto)
+}
+
+
+function Get-CampoClave($enCampo) {
+    # Agrupa el campo de Outlook en tres filtros: para nosotros, en copia y lista/otro.
+    switch ($enCampo) {
+        'Para'  { return 'para' }
+        'CC'    { return 'copia' }
+        'CCO'   { return 'copia' }
+        default { return 'otro' }
+    }
+}
+
+
+function New-DetalleHtml($rows, $stats) {
+    $casillas = @($stats | ForEach-Object { [string]$_.Casilla })
+
+    $botonesCampo = '<button data-campo-btn="todos" class="activo">Todos</button>' +
+        '<button data-campo-btn="para">Para nosotros</button>' +
+        '<button data-campo-btn="copia">En copia</button>' +
+        '<button data-campo-btn="otro">Lista/otro</button>'
+
+    $botonesCasilla = '<button data-casilla-btn="todas" class="activo">Todas las casillas</button>'
+    for ($i = 0; $i -lt $casillas.Count; $i++) {
+        $botonesCasilla += "<button data-casilla-btn=`"$i`">$(HtmlText $casillas[$i])</button>"
+    }
+
+    $carpetas = @($rows | ForEach-Object { [string]$_.Carpeta } | Sort-Object -Unique)
+    $botonesCarpeta = '<button data-carpeta-btn="todas" class="activo">Todas las carpetas</button>'
+    for ($i = 0; $i -lt $carpetas.Count; $i++) {
+        $botonesCarpeta += "<button data-carpeta-btn=`"$i`">$(HtmlText $carpetas[$i])</button>"
+    }
+
+    $filas = New-Object System.Text.StringBuilder
+    foreach ($r in $rows) {
+        $idx = [array]::IndexOf($casillas, [string]$r.Casilla)
+        $idxCarpeta = [array]::IndexOf($carpetas, [string]$r.Carpeta)
+        $campo = Get-CampoClave $r.EnCampo
+        [void]$filas.Append("<tr data-campo=`"$campo`" data-casilla=`"$idx`" data-carpeta=`"$idxCarpeta`">")
+        foreach ($celda in @($r.Casilla, $r.Recibido, $r.De, $r.Email, $r.Asunto, $r.Carpeta, $r.EnCampo, $r.HorasSinRespuesta, $r.MailsSinResponder)) {
+            [void]$filas.Append("<td>$(HtmlText $celda)</td>")
+        }
+        [void]$filas.Append('</tr>')
+    }
+
+    $thead = '<tr><th>Casilla</th><th>Recibido</th><th>De</th><th>Email</th><th>Asunto</th><th>Carpeta</th><th>En campo</th><th>Horas sin respuesta</th><th>Mails del hilo sin responder</th></tr>'
+
+    $jsFiltros = @'
+<script>
+  var estado = { campo: 'todos', casilla: 'todas', carpeta: 'todas' };
+  function aplicarFiltros() {
+    var visibles = 0;
+    document.querySelectorAll('#detalle tbody tr').forEach(function (tr) {
+      var ok = (estado.campo === 'todos' || tr.dataset.campo === estado.campo) &&
+               (estado.casilla === 'todas' || tr.dataset.casilla === estado.casilla) &&
+               (estado.carpeta === 'todas' || tr.dataset.carpeta === estado.carpeta);
+      tr.style.display = ok ? '' : 'none';
+      if (ok) visibles++;
+    });
+    document.querySelectorAll('[data-campo-btn]').forEach(function (b) {
+      b.classList.toggle('activo', b.dataset.campoBtn === estado.campo);
+    });
+    document.querySelectorAll('[data-casilla-btn]').forEach(function (b) {
+      b.classList.toggle('activo', b.dataset.casillaBtn === estado.casilla);
+    });
+    document.querySelectorAll('[data-carpeta-btn]').forEach(function (b) {
+      b.classList.toggle('activo', b.dataset.carpetaBtn === estado.carpeta);
+    });
+    document.getElementById('contador').textContent = visibles + ' mails visibles';
+  }
+  document.querySelectorAll('[data-campo-btn]').forEach(function (b) {
+    b.addEventListener('click', function () { estado.campo = b.dataset.campoBtn; aplicarFiltros(); });
+  });
+  document.querySelectorAll('[data-casilla-btn]').forEach(function (b) {
+    b.addEventListener('click', function () { estado.casilla = b.dataset.casillaBtn; aplicarFiltros(); });
+  });
+  document.querySelectorAll('[data-carpeta-btn]').forEach(function (b) {
+    b.addEventListener('click', function () { estado.carpeta = b.dataset.carpetaBtn; aplicarFiltros(); });
+  });
+  aplicarFiltros();
+</script>
+'@
+
+    return '<h2>Detalle</h2>' +
+        '<div class="filtros"><div>' + $botonesCampo + '</div><div>' + $botonesCasilla + '</div><div>' + $botonesCarpeta + '</div></div>' +
+        '<p id="contador"></p>' +
+        '<table id="detalle"><thead>' + $thead + '</thead><tbody>' + $filas.ToString() + '</tbody></table>' +
+        $jsFiltros
+}
+
+
 function Write-Report($rows, $stats, $day, $folder) {
     $stamp = $day.ToString('yyyy-MM-dd')
     $csvPath = Join-Path $folder "reporte_no_respondidos_$stamp.csv"
@@ -376,17 +469,22 @@ function Write-Report($rows, $stats, $day, $folder) {
   th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; }
   th { background: #f3f3f3; }
   tr:nth-child(even) td { background: #fafafa; }
+  .filtros { margin: 8px 0; }
+  .filtros div { margin-bottom: 6px; }
+  .filtros button { margin: 0 6px 6px 0; padding: 6px 12px; border: 1px solid #aaa; background: #fff; cursor: pointer; border-radius: 4px; }
+  .filtros button.activo { background: #1f4e79; color: #fff; border-color: #1f4e79; }
+  #contador { color: #555; font-size: 13px; }
 </style>
 '@
     $summary = ($stats | ConvertTo-Html -Fragment) -join "`n"
     $pre = "<h1>Mails sin responder: $stamp</h1>" +
         "<p>Generado: $((Get-Date).ToString('yyyy-MM-dd HH:mm'))</p>" +
-        "<h2>Resumen por casilla</h2>$summary<h2>Detalle</h2>"
+        "<h2>Resumen por casilla</h2>$summary"
     if ($rows.Count -eq 0) { $pre += '<p><b>No quedó ningún mail sin responder.</b></p>' }
 
-    $rows |
-        ConvertTo-Html -Head $head -PreContent $pre -Title "Mails sin responder $stamp" |
-        Out-File -FilePath $htmlPath -Encoding UTF8
+    $documento = "<!DOCTYPE html><html><head>$head<title>Mails sin responder $stamp</title></head><body>" +
+        $pre + (New-DetalleHtml $rows $stats) + "</body></html>"
+    Set-Content -Path $htmlPath -Value $documento -Encoding UTF8
 
     return $csvPath, $htmlPath
 }
