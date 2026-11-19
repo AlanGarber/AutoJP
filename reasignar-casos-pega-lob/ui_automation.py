@@ -15,6 +15,7 @@ desde "View Queue for" (popup) y después volvés a la terminal y presionás Ent
 
 Uso:
     python ui_automation.py datos.xlsx
+    python ui_automation.py --buscar JPV-XXXX   (prueba: solo busca el JPV, no reasigna)
 
 Por defecto corre con DRY_RUN = False (reasigna de verdad). Genera resultados.csv y una captura (error_fila_N.png)
 por cada fila que falle.
@@ -324,16 +325,22 @@ def recorrer_pagina_actual(basket: Page, jpv: str):
     return None
 
 
+pagina_del_ultimo_jpv = None  # página donde se encontró el último JPV buscado (None si no apareció)
+
+
 def buscar_jpv_en_basket(basket: Page, jpv: str):
     """Busca el link visible del JPV en toda la grilla de la basket.
 
     Cada búsqueda empieza en la página 1. Recorre cada página de arriba hacia abajo y, si no
     está, pasa a la página siguiente, hasta la última. Devuelve el locator del link o None.
     """
+    global pagina_del_ultimo_jpv
+    pagina_del_ultimo_jpv = None
     ir_a_primera_pagina(basket)
-    for _ in range(MAX_PAGINAS_BASKET):
+    for numero_pagina in range(1, MAX_PAGINAS_BASKET + 1):
         link = recorrer_pagina_actual(basket, jpv)
         if link is not None:
+            pagina_del_ultimo_jpv = numero_pagina
             return link
         if not ir_a_siguiente_pagina(basket):
             break
@@ -581,9 +588,50 @@ def imprimir(fila, lob, jpv, estado, detalle):
     print(f"{color}{estado} - fila {fila}: JPV {jpv} (LOB {lob}) {detalle}{RESET}")
 
 
+def abrir_sesion(p):
+    """Abre el navegador, hace el login y deja lista la basket. Devuelve (browser, main_page, basket)."""
+    args = ["--start-maximized"] if MAXIMIZAR_VENTANA else []
+    browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS, args=args)
+    # no_viewport: la página usa el tamaño real de la ventana, así que queda maximizada
+    context = browser.new_context(no_viewport=MAXIMIZAR_VENTANA)
+    main_page = context.new_page()
+    main_page.goto(APP_URL)
+    if AUTO_SSO_CLICKS:
+        login_sso(main_page)
+
+    if AUTO_ABRIR_BASKET:
+        input("Completá usuario, contraseña y MFA. Cuando se vea Pega, presioná Enter acá... ")
+        basket = abrir_basket(main_page)
+    else:
+        input("Completá usuario, contraseña y MFA, abrí la basket desde 'View Queue for' (popup) y después presioná Enter acá... ")
+        basket = find_basket(context, main_page)
+        maximizar_ventana(basket)
+        aplicar_zoom_basket(basket)
+    return browser, main_page, basket
+
+
+def buscar_solo(jpv: str) -> None:
+    """Modo prueba: busca el JPV en toda la basket. No hace clic en el caso ni reasigna nada."""
+    with sync_playwright() as p:
+        browser, _main_page, basket = abrir_sesion(p)
+        try:
+            link = buscar_jpv_en_basket(basket, jpv)
+            if link is None:
+                diagnosticar_basket(basket, jpv)
+                print(f"NO ENCONTRADO: {jpv} no está en ninguna página de la basket. Diagnóstico en diagnostico_basket.txt")
+            else:
+                print(f"ENCONTRADO: {jpv} está en la página {pagina_del_ultimo_jpv}. No se hizo clic ni se reasignó nada.")
+        finally:
+            browser.close()
+
+
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "--buscar":
+        buscar_solo(sys.argv[2])
+        return
     if len(sys.argv) != 2:
         print("Uso: python ui_automation.py datos.xlsx")
+        print("     python ui_automation.py --buscar JPV-XXXX   (prueba: solo busca, no reasigna)")
         sys.exit(1)
 
     rows = read_rows(Path(sys.argv[1]))
@@ -592,23 +640,7 @@ def main():
     resultados = []
 
     with sync_playwright() as p:
-        args = ["--start-maximized"] if MAXIMIZAR_VENTANA else []
-        browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS, args=args)
-        # no_viewport: la página usa el tamaño real de la ventana, así que queda maximizada
-        context = browser.new_context(no_viewport=MAXIMIZAR_VENTANA)
-        main_page = context.new_page()
-        main_page.goto(APP_URL)
-        if AUTO_SSO_CLICKS:
-            login_sso(main_page)
-
-        if AUTO_ABRIR_BASKET:
-            input("Completá usuario, contraseña y MFA. Cuando se vea Pega, presioná Enter acá... ")
-            basket = abrir_basket(main_page)
-        else:
-            input("Completá usuario, contraseña y MFA, abrí la basket desde 'View Queue for' (popup) y después presioná Enter acá... ")
-            basket = find_basket(context, main_page)
-            maximizar_ventana(basket)
-            aplicar_zoom_basket(basket)
+        browser, main_page, basket = abrir_sesion(p)
 
         for idx, (nro, lob, col_b, jpv) in enumerate(rows):
             if basket.is_closed():
