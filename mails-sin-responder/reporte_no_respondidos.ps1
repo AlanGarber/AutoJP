@@ -76,6 +76,9 @@ $AbrirReporteAlTerminar = $true
 # Lista local del equipo (equipo_local.ps1, fuera del repo). Si existe, reemplaza $Equipo.
 $RutaEquipoLocal = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'equipo_local.ps1' } else { Join-Path (Get-Location) 'equipo_local.ps1' }
 if (Test-Path $RutaEquipoLocal) { . $RutaEquipoLocal }
+# Lista de casillas (casillas_local.ps1, fuera del repo). Si existe, reemplaza $Casillas.
+$RutaCasillasLocal = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'casillas_local.ps1' } else { Join-Path (Get-Location) 'casillas_local.ps1' }
+if (Test-Path $RutaCasillasLocal) { . $RutaCasillasLocal }
 
 $ErrorActionPreference = 'Stop'
 
