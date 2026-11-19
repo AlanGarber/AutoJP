@@ -80,7 +80,7 @@ BOT_ID = "B089707"                                 # si el asignado actual conti
 CHANGE_CASE_TYPE_OPTION = "role=menuitem[name='Change case type'] >> visible=true"  # opción dentro de Actions
 NEW_CASE_TYPE_LABEL = "Select New Case Type"        # label del dropdown donde se elige el nuevo tipo de caso
 
-XLSX_SHEET = None          # None = primera hoja; o el nombre de la hoja, por ejemplo "Hoja1"
+XLSX_SHEET = "Cases Distribution"  # nombre exacto de la hoja. Si el XLSX no la tiene, el script se detiene antes de abrir el navegador
 XLSX_HAS_HEADER = True     # True: la primera fila es encabezado y se saltea
 COL_ASSIGNEE = "A"         # columna con el assignee
 COL_JPV = "B"              # columna con el identificador JPV
@@ -135,7 +135,9 @@ def read_rows(path: Path):
     """Devuelve [(nro_fila, assignee, jpv, equipo, tipo_caso)] para cada fila válida del XLSX."""
     wb = load_workbook(path, read_only=True, data_only=True)
     try:
-        ws = wb[XLSX_SHEET] if XLSX_SHEET else wb.active
+        if XLSX_SHEET not in wb.sheetnames:
+            sys.exit(f"El XLSX no tiene la hoja '{XLSX_SHEET}'. Hojas encontradas: {', '.join(wb.sheetnames)}")
+        ws = wb[XLSX_SHEET]
         idx_assignee = column_index_from_string(COL_ASSIGNEE) - 1
         idx_jpv = column_index_from_string(COL_JPV) - 1
         idx_team = column_index_from_string(COL_TEAM) - 1
