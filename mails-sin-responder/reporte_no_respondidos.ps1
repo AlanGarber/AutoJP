@@ -372,38 +372,91 @@ function Get-CampoClave($enCampo) {
 }
 
 
+function Get-ClaseHoras($horas) {
+    # Color según cuánto tiempo lleva sin respuesta: verde < 1 h, amarillo 1-4 h, rojo >= 4 h.
+    if ($horas -ge 4) { return 'horas-alta' }
+    if ($horas -ge 1) { return 'horas-media' }
+    return 'horas-baja'
+}
+
+
+function New-ResumenHtml($stats) {
+    $suma = { param($propiedad) [int](@($stats | ForEach-Object { [int]$_.$propiedad }) | Measure-Object -Sum).Sum }
+    $totales = [pscustomobject]@{
+        Casilla     = 'Total'
+        Recibidos   = & $suma 'Recibidos'
+        Ignorados   = & $suma 'Ignorados'
+        Respondidos = & $suma 'Respondidos'
+        SinResponder = & $suma 'SinResponder'
+    }
+
+    $tarjetas = New-Object System.Text.StringBuilder
+    foreach ($s in (@($stats) + @($totales))) {
+        $clase = if ($s.Casilla -eq 'Total') { 'tarjeta total' } else { 'tarjeta' }
+        [void]$tarjetas.Append(
+            "<div class=`"$clase`">" +
+            "<div class=`"tarjeta-titulo`">$(HtmlText $s.Casilla)</div>" +
+            "<div class=`"metricas`">" +
+            "<div><span class=`"num`">$($s.Recibidos)</span><span class=`"lbl`">recibidos</span></div>" +
+            "<div><span class=`"num`">$($s.Respondidos)</span><span class=`"lbl`">respondidos</span></div>" +
+            "<div class=`"destacado`"><span class=`"num`">$($s.SinResponder)</span><span class=`"lbl`">sin responder</span></div>" +
+            "</div>" +
+            "<div class=`"nota`">$($s.Ignorados) ignorados</div>" +
+            "</div>")
+    }
+    return '<section class="tarjetas">' + $tarjetas.ToString() + '</section>'
+}
+
+
 function New-DetalleHtml($rows, $stats) {
     $casillas = @($stats | ForEach-Object { [string]$_.Casilla })
+    $carpetas = @($rows | ForEach-Object { [string]$_.Carpeta } | Sort-Object -Unique)
 
     $botonesCampo = '<button data-campo-btn="todos" class="activo">Todos</button>' +
         '<button data-campo-btn="para">Para nosotros</button>' +
         '<button data-campo-btn="copia">En copia</button>' +
         '<button data-campo-btn="otro">Lista/otro</button>'
 
-    $botonesCasilla = '<button data-casilla-btn="todas" class="activo">Todas las casillas</button>'
+    $botonesCasilla = '<button data-casilla-btn="todas" class="activo">Todas</button>'
     for ($i = 0; $i -lt $casillas.Count; $i++) {
         $botonesCasilla += "<button data-casilla-btn=`"$i`">$(HtmlText $casillas[$i])</button>"
     }
 
-    $carpetas = @($rows | ForEach-Object { [string]$_.Carpeta } | Sort-Object -Unique)
-    $botonesCarpeta = '<button data-carpeta-btn="todas" class="activo">Todas las carpetas</button>'
+    $botonesCarpeta = '<button data-carpeta-btn="todas" class="activo">Todas</button>'
     for ($i = 0; $i -lt $carpetas.Count; $i++) {
         $botonesCarpeta += "<button data-carpeta-btn=`"$i`">$(HtmlText $carpetas[$i])</button>"
     }
+
+    $filtros = '<div class="filtros">' +
+        '<div class="grupo"><span class="etiqueta">Campo</span>' + $botonesCampo + '</div>' +
+        '<div class="grupo"><span class="etiqueta">Casilla</span>' + $botonesCasilla + '</div>' +
+        '<div class="grupo"><span class="etiqueta">Carpeta</span>' + $botonesCarpeta + '</div>' +
+        '</div>'
 
     $filas = New-Object System.Text.StringBuilder
     foreach ($r in $rows) {
         $idx = [array]::IndexOf($casillas, [string]$r.Casilla)
         $idxCarpeta = [array]::IndexOf($carpetas, [string]$r.Carpeta)
         $campo = Get-CampoClave $r.EnCampo
-        [void]$filas.Append("<tr data-campo=`"$campo`" data-casilla=`"$idx`" data-carpeta=`"$idxCarpeta`">")
-        foreach ($celda in @($r.Casilla, $r.Recibido, $r.De, $r.Email, $r.Asunto, $r.Carpeta, $r.EnCampo, $r.HorasSinRespuesta, $r.MailsSinResponder)) {
-            [void]$filas.Append("<td>$(HtmlText $celda)</td>")
-        }
-        [void]$filas.Append('</tr>')
+        $celdas = @(
+            "<td>$(HtmlText $r.Casilla)</td>",
+            "<td class=`"nowrap`">$(HtmlText $r.Recibido)</td>",
+            "<td>$(HtmlText $r.De)</td>",
+            "<td class=`"email`">$(HtmlText $r.Email)</td>",
+            "<td class=`"asunto`">$(HtmlText $r.Asunto)</td>",
+            "<td>$(HtmlText $r.Carpeta)</td>",
+            "<td><span class=`"badge badge-$campo`">$(HtmlText $r.EnCampo)</span></td>",
+            "<td class=`"num-col`"><span class=`"horas $(Get-ClaseHoras $r.HorasSinRespuesta)`">$(HtmlText $r.HorasSinRespuesta) h</span></td>",
+            "<td class=`"num-col`">$(HtmlText $r.MailsSinResponder)</td>"
+        )
+        [void]$filas.Append(
+            "<tr data-campo=`"$campo`" data-casilla=`"$idx`" data-carpeta=`"$idxCarpeta`">" + ($celdas -join '') + "</tr>")
     }
 
-    $thead = '<tr><th>Casilla</th><th>Recibido</th><th>De</th><th>Email</th><th>Asunto</th><th>Carpeta</th><th>En campo</th><th>Horas sin respuesta</th><th>Mails del hilo sin responder</th></tr>'
+    $thead = '<tr><th>Casilla</th><th>Recibido</th><th>De</th><th>Email</th><th>Asunto</th><th>Carpeta</th><th>En campo</th><th>Horas sin respuesta</th><th>Mails del hilo</th></tr>'
+
+    $leyenda = '<p class="leyenda">Horas sin respuesta: <span class="horas horas-baja">menos de 1 h</span> ' +
+        '<span class="horas horas-media">1 a 4 h</span> <span class="horas horas-alta">4 h o más</span></p>'
 
     $jsFiltros = @'
 <script>
@@ -415,7 +468,10 @@ function New-DetalleHtml($rows, $stats) {
                (estado.casilla === 'todas' || tr.dataset.casilla === estado.casilla) &&
                (estado.carpeta === 'todas' || tr.dataset.carpeta === estado.carpeta);
       tr.style.display = ok ? '' : 'none';
-      if (ok) visibles++;
+      if (ok) {
+        visibles++;
+        tr.classList.toggle('par', visibles % 2 === 0);
+      }
     });
     document.querySelectorAll('[data-campo-btn]').forEach(function (b) {
       b.classList.toggle('activo', b.dataset.campoBtn === estado.campo);
@@ -426,7 +482,7 @@ function New-DetalleHtml($rows, $stats) {
     document.querySelectorAll('[data-carpeta-btn]').forEach(function (b) {
       b.classList.toggle('activo', b.dataset.carpetaBtn === estado.carpeta);
     });
-    document.getElementById('contador').textContent = visibles + ' mails visibles';
+    document.getElementById('contador').textContent = visibles + (visibles === 1 ? ' mail visible' : ' mails visibles');
   }
   document.querySelectorAll('[data-campo-btn]').forEach(function (b) {
     b.addEventListener('click', function () { estado.campo = b.dataset.campoBtn; aplicarFiltros(); });
@@ -441,10 +497,11 @@ function New-DetalleHtml($rows, $stats) {
 </script>
 '@
 
-    return '<h2>Detalle</h2>' +
-        '<div class="filtros"><div>' + $botonesCampo + '</div><div>' + $botonesCasilla + '</div><div>' + $botonesCarpeta + '</div></div>' +
-        '<p id="contador"></p>' +
-        '<table id="detalle"><thead>' + $thead + '</thead><tbody>' + $filas.ToString() + '</tbody></table>' +
+    return '<h2>Detalle</h2>' + $filtros +
+        '<p id="contador" class="contador"></p>' +
+        $leyenda +
+        '<div class="tabla-wrap"><table id="detalle"><thead>' + $thead + '</thead><tbody>' +
+        $filas.ToString() + '</tbody></table></div>' +
         $jsFiltros
 }
 
@@ -460,30 +517,66 @@ function Write-Report($rows, $stats, $day, $folder) {
 
     $head = @'
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  body { font-family: Segoe UI, Arial, sans-serif; margin: 24px; color: #222; }
-  h1 { font-size: 20px; margin-bottom: 4px; }
-  h2 { font-size: 16px; margin-top: 24px; }
-  p { margin-top: 0; color: #555; }
-  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 16px; }
-  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; }
-  th { background: #f3f3f3; }
-  tr:nth-child(even) td { background: #fafafa; }
-  .filtros { margin: 8px 0; }
-  .filtros div { margin-bottom: 6px; }
-  .filtros button { margin: 0 6px 6px 0; padding: 6px 12px; border: 1px solid #aaa; background: #fff; cursor: pointer; border-radius: 4px; }
-  .filtros button.activo { background: #1f4e79; color: #fff; border-color: #1f4e79; }
-  #contador { color: #555; font-size: 13px; }
+  /* Colores de marca: cambiarlos acá. Acento #117ACA y navy #0C2A3A, según fuentes públicas. */
+  :root { --navy: #0C2A3A; --azul: #117ACA; --texto: #1d2733; --gris: #5b6776; --borde: #e3e8ef; --fondo: #f4f6f9; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.45; color: var(--texto); background: var(--fondo); }
+  header.encabezado { background: var(--navy); color: #fff; padding: 22px 32px; }
+  header.encabezado h1 { margin: 0; font-size: 24px; font-weight: 600; }
+  header.encabezado .fecha { margin: 4px 0 0; color: #cfe0f1; font-size: 14px; }
+  main { padding: 24px 32px 40px; }
+  h2 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
+  .tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .tarjeta { background: #fff; border: 1px solid var(--borde); border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .tarjeta.total { border-color: var(--azul); }
+  .tarjeta-titulo { font-weight: 600; margin-bottom: 10px; word-break: break-word; }
+  .metricas { display: flex; gap: 20px; flex-wrap: wrap; }
+  .metricas > div { display: flex; flex-direction: column; }
+  .num { font-size: 24px; font-weight: 700; line-height: 1.1; }
+  .lbl { font-size: 12px; color: var(--gris); text-transform: uppercase; letter-spacing: .03em; }
+  .destacado .num { color: #b42318; }
+  .nota { margin-top: 10px; font-size: 12px; color: var(--gris); }
+  .filtros { background: #fff; border: 1px solid var(--borde); border-radius: 10px; padding: 10px 16px; }
+  .grupo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+  .etiqueta { width: 72px; font-size: 12px; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: .03em; }
+  .filtros button { padding: 6px 13px; border: 1px solid #c9d3df; background: #fff; color: var(--texto); border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px; }
+  .filtros button:hover { border-color: var(--azul); }
+  .filtros button.activo { background: var(--azul); border-color: var(--azul); color: #fff; }
+  .contador { margin: 12px 2px 4px; color: var(--gris); font-size: 13px; }
+  .leyenda { margin: 4px 2px 10px; color: var(--gris); font-size: 13px; }
+  .leyenda .horas { margin-right: 4px; }
+  .tabla-wrap { overflow: auto; max-height: 68vh; border: 1px solid var(--borde); border-radius: 10px; background: #fff; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  thead th { position: sticky; top: 0; background: #eaf4fb; text-align: left; font-weight: 600; padding: 11px 12px; border-bottom: 1px solid var(--borde); white-space: nowrap; z-index: 1; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+  tr.par td { background: #fafbfd; }
+  tbody tr:hover td { background: #eaf2fb; }
+  .nowrap { white-space: nowrap; }
+  .email { color: var(--gris); word-break: break-all; }
+  .asunto { min-width: 260px; }
+  .num-col { text-align: right; white-space: nowrap; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge-para { background: #dcfce7; color: #166534; }
+  .badge-copia { background: #e0ecff; color: #1e40af; }
+  .badge-otro { background: #f1f1f4; color: #4b5563; }
+  .horas { display: inline-block; padding: 2px 9px; border-radius: 6px; font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+  .horas-baja { background: #dcfce7; color: #166534; }
+  .horas-media { background: #fef3c7; color: #92400e; }
+  .horas-alta { background: #fee2e2; color: #991b1b; }
+  .vacio { background: #fff; border: 1px solid var(--borde); border-radius: 10px; padding: 16px; font-weight: 600; color: #166534; }
+  @media print { header.encabezado { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .tabla-wrap { max-height: none; overflow: visible; } .filtros { display: none; } }
 </style>
 '@
-    $summary = ($stats | ConvertTo-Html -Fragment) -join "`n"
-    $pre = "<h1>Mails sin responder: $stamp</h1>" +
-        "<p>Generado: $((Get-Date).ToString('yyyy-MM-dd HH:mm'))</p>" +
-        "<h2>Resumen por casilla</h2>$summary"
-    if ($rows.Count -eq 0) { $pre += '<p><b>No quedó ningún mail sin responder.</b></p>' }
 
-    $documento = "<!DOCTYPE html><html><head>$head<title>Mails sin responder $stamp</title></head><body>" +
-        $pre + (New-DetalleHtml $rows $stats) + "</body></html>"
+    $pre = '<header class="encabezado"><h1>Mails sin responder</h1>' +
+        "<p class=`"fecha`">Día analizado: $stamp &middot; Generado: $((Get-Date).ToString('yyyy-MM-dd HH:mm'))</p></header>" +
+        '<main><h2>Resumen por casilla</h2>' + (New-ResumenHtml $stats)
+    if ($rows.Count -eq 0) { $pre += '<p class="vacio">No quedó ningún mail sin responder.</p>' }
+
+    $documento = "<!DOCTYPE html><html lang=`"es`"><head>$head<title>Mails sin responder $stamp</title></head><body>" +
+        $pre + (New-DetalleHtml $rows $stats) + '</main></body></html>'
     Set-Content -Path $htmlPath -Value $documento -Encoding UTF8
 
     return $csvPath, $htmlPath
