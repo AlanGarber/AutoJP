@@ -88,6 +88,8 @@ COL_TEAM = "C"             # columna con el equipo
 TEAMS_ALLOWED = {"AUTOCV", "FX ChaseTr", "iFX"}  # solo se procesan las filas de estos equipos; el resto se omite
 COL_CASE_TYPE = "D"        # columna con el tipo de caso
 CASE_TYPE_TRIGGER = "Miscellaneous"  # si la fila tiene este tipo, antes de reasignar se cambia el tipo de caso
+CASE_TYPES_SOLO_AUTOCV = {"Miscellaneous", "OFAC"}  # estos tipos solo se procesan si el equipo es AUTOCV; si no, se omiten
+TEAM_AUTOCV = "AUTOCV"
 NEW_CASE_TYPE = "JPM-Work-Shared-WDPC-Exp-AmendBen"  # VALUE de la opción en el dropdown (no el texto visible)
 
 # Nombres del XLSX que no coinciden con el dropdown de la app: {nombre_en_xlsx: nombre_en_app}
@@ -338,9 +340,12 @@ def guardar_resultados(results: list) -> None:
     errores = [r for r in filas if r[3] == "ERROR"]
     sin_procesar = [r for r in filas if r[3] == "NO PROCESADA"]
     if errores:
-        print(f"\n{RED}{'JPV':<16}{'Asignado a':<32}Motivo{RESET}")
+        # El ancho sale del dato más largo, con 2 espacios de separación, para que el JPV no pegue con el assignee
+        ancho_jpv = max(len("JPV"), *(len(r[2]) for r in errores)) + 2
+        ancho_asig = max(len("Asignado a"), *(len(r[1]) for r in errores)) + 2
+        print(f"\n{RED}{'JPV':<{ancho_jpv}}{'Asignado a':<{ancho_asig}}Motivo{RESET}")
         for r in errores:
-            print(f"{RED}{r[2]:<16}{r[1]:<32}{r[4]}{RESET}")
+            print(f"{RED}{r[2]:<{ancho_jpv}}{r[1]:<{ancho_asig}}{r[4]}{RESET}")
         print()
     log.info("Resultados: %d OK, %d con error, %d sin procesar. Detalle en %s",
              len(ok), len(errores), len(sin_procesar), out.resolve())
@@ -378,7 +383,14 @@ def main() -> None:
                     results.append([row_no, assignee, jpv, "NO PROCESADA", "corrida detenida por un error anterior"])
                     continue
                 if team not in TEAMS_ALLOWED:
-                    results.append([row_no, assignee, jpv, "OMITIDA", f"equipo '{team}' fuera de TEAMS_ALLOWED"])
+                    motivo = f"equipo '{team}' fuera de TEAMS_ALLOWED"
+                    log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
+                    results.append([row_no, assignee, jpv, "OMITIDA", motivo])
+                    continue
+                if case_type.casefold() in {t.casefold() for t in CASE_TYPES_SOLO_AUTOCV} and team != TEAM_AUTOCV:
+                    motivo = f"tipo '{case_type}' solo se procesa para el equipo {TEAM_AUTOCV}"
+                    log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
+                    results.append([row_no, assignee, jpv, "OMITIDA", motivo])
                     continue
                 try:
                     process_row(page, assignee, jpv, case_type)
