@@ -207,6 +207,16 @@ def find_pega_frame(page: Page) -> FrameLocator:
     return find_frame_with(page, ACTIONS_MENU)
 
 
+def valor_opcion(select, nombre: str) -> str:
+    """Devuelve el value de la opción del dropdown cuyo texto es el nombre, sin distinguir mayúsculas ni espacios de más."""
+    buscado = " ".join(nombre.split()).casefold()
+    for opcion in select.locator("option").all():
+        texto = " ".join((opcion.text_content() or "").split()).casefold()
+        if texto == buscado:
+            return opcion.get_attribute("value") or opcion.text_content().strip()
+    raise ValueError(f"no encontré '{nombre}' en el dropdown")
+
+
 def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
     paso = "buscar JPV"
     try:
@@ -281,9 +291,10 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
         pega.locator(REASSIGN_OPTION).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
 
-        # 4) Elegir el assignee en el dropdown "operator" (por texto visible de la opción)
+        # 4) Elegir el assignee en el dropdown "operator" (sin importar mayúsculas ni espacios)
         paso = "operator (assignee)"
-        pega.get_by_label(OPERATOR_LABEL).select_option(label=assignee)
+        operator = pega.get_by_label(OPERATOR_LABEL)
+        operator.select_option(value=valor_opcion(operator, assignee))
         page.wait_for_timeout(STEP_PAUSE_MS)
 
         # 5) Submit y Close (sin Save: la reasignación no deja nada por guardar)
