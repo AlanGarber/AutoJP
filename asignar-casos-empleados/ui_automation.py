@@ -30,6 +30,7 @@ import logging
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -212,13 +213,24 @@ def find_pega_frame(page: Page) -> FrameLocator:
 
 
 def valor_opcion(select, nombre: str) -> str:
-    """Devuelve el value de la opción del dropdown cuyo texto es el nombre, sin distinguir mayúsculas ni espacios de más."""
+    """Devuelve el value de la opción del dropdown cuyo texto es el nombre, sin distinguir mayúsculas ni espacios de más.
+
+    Reintenta hasta PEGA_FRAME_TIMEOUT_MS: las opciones pueden cargarse después de abrir el dropdown.
+    """
     buscado = " ".join(nombre.split()).casefold()
-    for opcion in select.locator("option").all():
-        texto = " ".join((opcion.text_content() or "").split()).casefold()
-        if texto == buscado:
-            return opcion.get_attribute("value") or opcion.text_content().strip()
-    raise ValueError(f"no encontré '{nombre}' en el dropdown")
+    limite = time.monotonic() + PEGA_FRAME_TIMEOUT_MS / 1000
+    while True:
+        opciones = select.locator("option").all()
+        for opcion in opciones:
+            texto = " ".join((opcion.text_content() or "").split()).casefold()
+            if texto == buscado:
+                return opcion.get_attribute("value") or (opcion.text_content() or "").strip()
+        if time.monotonic() >= limite:
+            leidas = [" ".join((o.text_content() or "").split()) for o in opciones[:10]]
+            raise ValueError(
+                f"no encontré '{nombre}' en el dropdown (opciones leídas: {len(opciones)}; primeras: {leidas})"
+            )
+        time.sleep(STEP_PAUSE_MS / 1000)
 
 
 def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
