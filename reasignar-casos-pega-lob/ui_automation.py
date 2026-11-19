@@ -649,6 +649,7 @@ def main():
         print("     python ui_automation.py --buscar JPV-XXXX   (prueba: solo busca, no reasigna)")
         sys.exit(1)
 
+    inicio = time.monotonic()
     ruta = ruta_del_excel(sys.argv)
     if ruta is None:
         print("Falta la ruta del XLSX: pasala como argumento o completá XLSX_RUTA en config_local.py.")
@@ -710,6 +711,10 @@ def main():
     for r in resultados:
         total[r[4]] = total.get(r[4], 0) + 1
     log.info("Resumen: %s. Detalle en %s", total, SALIDA_CSV)
+
+    horas, resto = divmod(int(round(time.monotonic() - inicio)), 3600)
+    minutos, segundos = divmod(resto, 60)
+    log.info("Tiempo total de ejecución: %02d:%02d:%02d", horas, minutos, segundos)
 
 
 if __name__ == "__main__":
