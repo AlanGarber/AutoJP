@@ -520,63 +520,114 @@ function Write-Report($rows, $stats, $day, $folder) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   /* Colores de marca: cambiarlos acá. Acento #117ACA y navy #0C2A3A, según fuentes públicas. */
-  :root { --navy: #0C2A3A; --azul: #117ACA; --texto: #1d2733; --gris: #5b6776; --borde: #e3e8ef; --fondo: #f4f6f9; }
+  :root {
+    --navy: #0C2A3A; --azul: #117ACA; --texto: #1d2733; --gris: #5b6776; --borde: #e3e8ef; --fondo: #f4f6f9;
+    --superficie: #ffffff; --superficie-2: #fafbfd; --cabecera: #eaf4fb; --hover: #eaf2fb; --boton-borde: #c9d3df;
+    --rojo: #b42318; --verde-txt: #166534;
+    --para-bg: #dcfce7; --para-txt: #166534; --copia-bg: #e0ecff; --copia-txt: #1e40af; --otro-bg: #f1f1f4; --otro-txt: #4b5563;
+    --baja-bg: #dcfce7; --baja-txt: #166534; --media-bg: #fef3c7; --media-txt: #92400e; --alta-bg: #fee2e2; --alta-txt: #991b1b;
+  }
+  html[data-tema="oscuro"] {
+    --navy: #07202D; --azul: #4FA9EB; --texto: #E6EDF3; --gris: #9AA7B5; --borde: #2B3645; --fondo: #0E141B;
+    --superficie: #151D27; --superficie-2: #1A2430; --cabecera: #1E2B3A; --hover: #223246; --boton-borde: #3A4757;
+    --rojo: #FF8A80; --verde-txt: #86EFAC;
+    --para-bg: #14391F; --para-txt: #86EFAC; --copia-bg: #17324F; --copia-txt: #93C5FD; --otro-bg: #262F3B; --otro-txt: #C3CBD6;
+    --baja-bg: #14391F; --baja-txt: #86EFAC; --media-bg: #3D2F12; --media-txt: #FCD34D; --alta-bg: #3F1A1A; --alta-txt: #FCA5A5;
+  }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-tema="claro"]) {
+      --navy: #07202D; --azul: #4FA9EB; --texto: #E6EDF3; --gris: #9AA7B5; --borde: #2B3645; --fondo: #0E141B;
+      --superficie: #151D27; --superficie-2: #1A2430; --cabecera: #1E2B3A; --hover: #223246; --boton-borde: #3A4757;
+      --rojo: #FF8A80; --verde-txt: #86EFAC;
+      --para-bg: #14391F; --para-txt: #86EFAC; --copia-bg: #17324F; --copia-txt: #93C5FD; --otro-bg: #262F3B; --otro-txt: #C3CBD6;
+      --baja-bg: #14391F; --baja-txt: #86EFAC; --media-bg: #3D2F12; --media-txt: #FCD34D; --alta-bg: #3F1A1A; --alta-txt: #FCA5A5;
+    }
+  }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Segoe UI", Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.45; color: var(--texto); background: var(--fondo); }
-  header.encabezado { background: var(--navy); color: #fff; padding: 22px 32px; }
+  header.encabezado { background: var(--navy); color: #fff; padding: 22px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
   header.encabezado h1 { margin: 0; font-size: 24px; font-weight: 600; }
   header.encabezado .fecha { margin: 4px 0 0; color: #cfe0f1; font-size: 14px; }
+  .boton-tema { padding: 8px 14px; border: 1px solid #cfe0f1; background: transparent; color: #fff; border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px; }
+  .boton-tema:hover { background: rgba(255,255,255,.12); }
   main { padding: 24px 32px 40px; }
   h2 { font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
   .tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
-  .tarjeta { background: #fff; border: 1px solid var(--borde); border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .tarjeta { background: var(--superficie); border: 1px solid var(--borde); border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
   .tarjeta.total { border-color: var(--azul); }
   .tarjeta-titulo { font-weight: 600; margin-bottom: 10px; word-break: break-word; }
   .metricas { display: flex; gap: 20px; flex-wrap: wrap; }
   .metricas > div { display: flex; flex-direction: column; }
   .num { font-size: 24px; font-weight: 700; line-height: 1.1; }
   .lbl { font-size: 12px; color: var(--gris); text-transform: uppercase; letter-spacing: .03em; }
-  .destacado .num { color: #b42318; }
+  .destacado .num { color: var(--rojo); }
   .nota { margin-top: 10px; font-size: 12px; color: var(--gris); }
-  .filtros { background: #fff; border: 1px solid var(--borde); border-radius: 10px; padding: 10px 16px; }
+  .filtros { background: var(--superficie); border: 1px solid var(--borde); border-radius: 10px; padding: 10px 16px; }
   .grupo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
   .etiqueta { width: 72px; font-size: 12px; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: .03em; }
-  .filtros button { padding: 6px 13px; border: 1px solid #c9d3df; background: #fff; color: var(--texto); border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px; }
+  .filtros button { padding: 6px 13px; border: 1px solid var(--boton-borde); background: var(--superficie); color: var(--texto); border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px; }
   .filtros button:hover { border-color: var(--azul); }
   .filtros button.activo { background: var(--azul); border-color: var(--azul); color: #fff; }
   .contador { margin: 12px 2px 4px; color: var(--gris); font-size: 13px; }
   .leyenda { margin: 4px 2px 10px; color: var(--gris); font-size: 13px; }
   .leyenda .horas { margin-right: 4px; }
-  .tabla-wrap { overflow: auto; max-height: 68vh; border: 1px solid var(--borde); border-radius: 10px; background: #fff; }
+  .tabla-wrap { overflow: auto; max-height: 68vh; border: 1px solid var(--borde); border-radius: 10px; background: var(--superficie); }
   table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  thead th { position: sticky; top: 0; background: #eaf4fb; text-align: left; font-weight: 600; padding: 11px 12px; border-bottom: 1px solid var(--borde); white-space: nowrap; z-index: 1; }
+  thead th { position: sticky; top: 0; background: var(--cabecera); text-align: left; font-weight: 600; padding: 11px 12px; border-bottom: 1px solid var(--borde); white-space: nowrap; z-index: 1; }
   td { padding: 10px 12px; border-bottom: 1px solid var(--borde); vertical-align: top; }
-  tr.par td { background: #fafbfd; }
-  tbody tr:hover td { background: #eaf2fb; }
+  tr.par td { background: var(--superficie-2); }
+  tbody tr:hover td { background: var(--hover); }
   .nowrap { white-space: nowrap; }
   .email { color: var(--gris); word-break: break-all; }
   .asunto { min-width: 260px; }
   .num-col { text-align: right; white-space: nowrap; }
   .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-  .badge-para { background: #dcfce7; color: #166534; }
-  .badge-copia { background: #e0ecff; color: #1e40af; }
-  .badge-otro { background: #f1f1f4; color: #4b5563; }
+  .badge-para { background: var(--para-bg); color: var(--para-txt); }
+  .badge-copia { background: var(--copia-bg); color: var(--copia-txt); }
+  .badge-otro { background: var(--otro-bg); color: var(--otro-txt); }
   .horas { display: inline-block; padding: 2px 9px; border-radius: 6px; font-weight: 600; font-size: 12.5px; white-space: nowrap; }
-  .horas-baja { background: #dcfce7; color: #166534; }
-  .horas-media { background: #fef3c7; color: #92400e; }
-  .horas-alta { background: #fee2e2; color: #991b1b; }
-  .vacio { background: #fff; border: 1px solid var(--borde); border-radius: 10px; padding: 16px; font-weight: 600; color: #166534; }
-  @media print { header.encabezado { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .tabla-wrap { max-height: none; overflow: visible; } .filtros { display: none; } }
+  .horas-baja { background: var(--baja-bg); color: var(--baja-txt); }
+  .horas-media { background: var(--media-bg); color: var(--media-txt); }
+  .horas-alta { background: var(--alta-bg); color: var(--alta-txt); }
+  .vacio { background: var(--superficie); border: 1px solid var(--borde); border-radius: 10px; padding: 16px; font-weight: 600; color: var(--verde-txt); }
+  @media print {
+    header.encabezado { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .tabla-wrap { max-height: none; overflow: visible; }
+    .filtros, .boton-tema { display: none; }
+  }
 </style>
 '@
 
-    $pre = '<header class="encabezado"><h1>Mails sin responder</h1>' +
-        "<p class=`"fecha`">Día analizado: $stamp &middot; Generado: $((Get-Date).ToString('yyyy-MM-dd HH:mm'))</p></header>" +
+    $pre = '<header class="encabezado"><div><h1>Mails sin responder</h1>' +
+        "<p class=`"fecha`">Día analizado: $stamp &middot; Generado: $((Get-Date).ToString('yyyy-MM-dd HH:mm'))</p></div>" +
+        '<button id="tema" type="button" class="boton-tema">Modo oscuro</button></header>' +
         '<main><h2>Resumen por casilla</h2>' + (New-ResumenHtml $stats)
     if ($rows.Count -eq 0) { $pre += '<p class="vacio">No quedó ningún mail sin responder.</p>' }
 
+    $jsTema = @'
+<script>
+(function () {
+  var html = document.documentElement;
+  var btn = document.getElementById('tema');
+  function esOscuro() {
+    if (html.dataset.tema) return html.dataset.tema === 'oscuro';
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  function actualizarBoton() { btn.textContent = esOscuro() ? 'Modo claro' : 'Modo oscuro'; }
+  try { var guardado = localStorage.getItem('tema-reporte'); if (guardado) html.dataset.tema = guardado; } catch (e) {}
+  actualizarBoton();
+  btn.addEventListener('click', function () {
+    var nuevo = esOscuro() ? 'claro' : 'oscuro';
+    html.dataset.tema = nuevo;
+    try { localStorage.setItem('tema-reporte', nuevo); } catch (e) {}
+    actualizarBoton();
+  });
+})();
+</script>
+'@
+
     $documento = "<!DOCTYPE html><html lang=`"es`"><head>$head<title>Mails sin responder $stamp</title></head><body>" +
-        $pre + (New-DetalleHtml $rows $stats) + '</main></body></html>'
+        $pre + (New-DetalleHtml $rows $stats) + '</main>' + $jsTema + '</body></html>'
     Set-Content -Path $htmlPath -Value $documento -Encoding UTF8
 
     return $csvPath, $htmlPath
