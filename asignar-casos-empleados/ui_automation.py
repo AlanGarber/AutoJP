@@ -30,12 +30,12 @@ import logging
 import os
 import re
 import sys
-import time
 from pathlib import Path
 
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 from playwright.sync_api import FrameLocator, Page, sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
 # =====================================================================
 # CONFIGURACIÓN: completar con los selectores reales de la app.
@@ -217,20 +217,15 @@ def valor_opcion(select, nombre: str) -> str:
 
     Reintenta hasta PEGA_FRAME_TIMEOUT_MS: las opciones pueden cargarse después de abrir el dropdown.
     """
-    buscado = " ".join(nombre.split()).casefold()
-    limite = time.monotonic() + PEGA_FRAME_TIMEOUT_MS / 1000
-    while True:
-        opciones = select.locator("option").all()
-        for opcion in opciones:
-            texto = " ".join((opcion.text_content() or "").split()).casefold()
-            if texto == buscado:
-                return opcion.get_attribute("value") or (opcion.text_content() or "").strip()
-        if time.monotonic() >= limite:
-            leidas = [" ".join((o.text_content() or "").split()) for o in opciones[:10]]
-            raise ValueError(
-                f"no encontré '{nombre}' en el dropdown (opciones leídas: {len(opciones)}; primeras: {leidas})"
-            )
-        time.sleep(STEP_PAUSE_MS / 1000)
+    # Espacios entre palabras se toleran; mayúsculas, no importan. Playwright espera la opción sin polling manual.
+    patron = re.compile(r"^\s*" + r"\s+".join(re.escape(p) for p in nombre.split()) + r"\s*$", re.IGNORECASE)
+    opcion = select.locator("option").filter(has_text=patron).first
+    try:
+        opcion.wait_for(state="attached", timeout=PEGA_FRAME_TIMEOUT_MS)
+    except PlaywrightTimeout:
+        primeras = select.evaluate("s => Array.from(s.options).map(o => o.textContent.trim()).slice(0, 10)")
+        raise ValueError(f"no encontré '{nombre}' en el dropdown (primeras opciones: {primeras})")
+    return opcion.get_attribute("value") or opcion.text_content().strip()
 
 
 def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
