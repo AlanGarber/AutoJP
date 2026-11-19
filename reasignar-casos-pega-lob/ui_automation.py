@@ -14,7 +14,8 @@ Antes de la primera fila, vos hacés el login en la ventana principal, abrís la
 desde "View Queue for" (popup) y después volvés a la terminal y presionás Enter.
 
 Uso:
-    python ui_automation.py datos.xlsx
+    python ui_automation.py                     (usa XLSX_RUTA de config_local.py)
+    python ui_automation.py datos.xlsx          (usa ese archivo)
     python ui_automation.py --buscar JPV-XXXX   (prueba: solo busca el JPV, no reasigna)
 
 Por defecto corre con DRY_RUN = False (reasigna de verdad). Genera resultados.csv y una captura (error_fila_N.png)
@@ -43,6 +44,11 @@ APP_URL = "https://TU-APP-PEGA"
 try:
     # URL real, en config_local.py (ver config_local.example.py). No se sube al repo.
     from config_local import APP_URL
+except ImportError:
+    pass
+XLSX_RUTA = None  # ruta del XLSX por defecto, en config_local.py (carpeta de red). None = pasar el archivo como argumento
+try:
+    from config_local import XLSX_RUTA
 except ImportError:
     pass
 
@@ -625,16 +631,34 @@ def buscar_solo(jpv: str) -> None:
             browser.close()
 
 
+def ruta_del_excel(argumentos):
+    """Ruta del XLSX: la que se pasa como argumento, o XLSX_RUTA de config_local.py. None si no hay ninguna."""
+    if len(argumentos) == 2:
+        return Path(argumentos[1])
+    if XLSX_RUTA:
+        return Path(XLSX_RUTA)
+    return None
+
+
 def main():
     if len(sys.argv) == 3 and sys.argv[1] == "--buscar":
         buscar_solo(sys.argv[2])
         return
-    if len(sys.argv) != 2:
-        print("Uso: python ui_automation.py datos.xlsx")
+    if len(sys.argv) > 2:
+        print("Uso: python ui_automation.py [datos.xlsx]")
         print("     python ui_automation.py --buscar JPV-XXXX   (prueba: solo busca, no reasigna)")
         sys.exit(1)
 
-    rows = read_rows(Path(sys.argv[1]))
+    ruta = ruta_del_excel(sys.argv)
+    if ruta is None:
+        print("Falta la ruta del XLSX: pasala como argumento o completá XLSX_RUTA en config_local.py.")
+        sys.exit(1)
+    if not ruta.exists():
+        print(f"No encuentro el XLSX: {ruta}")
+        print("Revisá XLSX_RUTA en config_local.py y que la carpeta de red esté conectada.")
+        sys.exit(1)
+
+    rows = read_rows(ruta)
     log.info("Filas a procesar: %d (DRY_RUN=%s)", len(rows), DRY_RUN)
     # Se valida antes de abrir el navegador: el caso especial necesita que A y B coincidan.
     resultados = []

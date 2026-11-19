@@ -40,6 +40,7 @@ Codegen graba lo que tipeás en el login. No dejes contraseñas en el archivo an
 
 1. Copiá `config_local.example.py` como `config_local.py`, en esta misma carpeta.
 2. Completá `APP_URL` con la URL real de Pega.
+3. Completá `XLSX_RUTA` con la ruta del XLSX en la carpeta de red. Así no hace falta copiar el archivo a esta carpeta. Si no la completás, pasá el archivo como argumento.
 
 `config_local.py` está en `.gitignore`, así que no se sube.
 
@@ -78,8 +79,10 @@ Probá primero con un XLSX de una sola fila.
 
 ```bash
 cd reasignar-casos-pega-lob
-python ui_automation.py datos.xlsx
+python ui_automation.py
 ```
+
+Sin argumentos, usa `XLSX_RUTA` de `config_local.py`. Si preferís otro archivo, pasalo: `python ui_automation.py datos.xlsx`.
 
 1. Se abre el navegador en Pega y el script hace los clicks de SSO (**Login with SSO** y **JPMorgan Chase (Default)**). Con `AUTO_SSO_CLICKS = False` los hacés a mano.
 2. Completá usuario, contraseña y MFA en el navegador. Cuando se vea Pega, volvé a la terminal y presioná Enter.

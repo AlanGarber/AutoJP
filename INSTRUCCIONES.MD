@@ -142,6 +142,7 @@ Esta automatización reasigna cada caso de la basket de Pega a la work queue que
 
 - Probá primero con un Excel de una sola fila, con un caso que puedas revertir a mano en Pega.
 - El Excel tiene datos de casos y JPV. No lo compartas en chats o correos fuera del equipo.
+- El Excel tiene que ser `.xlsx` y tener la LOB en la columna A (`Corp&FI`, `Retail` o `To check`), la columna B (solo para el caso especial, `FX Retail Inv`) y el JPV en la columna C (ID). Las demás columnas se ignoran.
 
 ## Primera vez (instalación)
 
@@ -154,29 +155,15 @@ pip install playwright openpyxl
 ```
 
 2. Dentro de la carpeta `AutoJP\reasignar-casos-pega-lob`, copiá el archivo `config_local.example.py` y renombrá la copia a `config_local.py`.
-3. Abrí `config_local.py` con el Bloc de notas y reemplazá la URL por la de Pega. **Guardá el archivo antes de cerrarlo** (menú Archivo > Guardar, o Ctrl+S).
+3. Abrí `config_local.py` con el Bloc de notas. Reemplazá la URL por la de Pega y completá `XLSX_RUTA` con la ruta de la carpeta de red que te pasó Alan. **Guardá el archivo antes de cerrarlo** (menú Archivo > Guardar, o Ctrl+S).
 
 Si alguna de estas líneas falla, pedí ayuda a Alan antes de seguir.
 
 ## Uso diario (Automatización B)
 
-### Paso 1: Preparar el Excel
+El Excel ya está en la carpeta de red del equipo: no hace falta descargarlo ni copiarlo. El script lo lee directo de ahí.
 
-El Excel tiene que ser `.xlsx` y tener estas columnas:
-
-| Columna | Qué contiene |
-|---|---|
-| A (**Comments**) | La LOB: `Corp&FI`, `Retail` o `To check` |
-| B | Solo se usa en el caso especial: `FX Retail Inv` |
-| C (**ID**) | El JPV del caso |
-
-Las demás columnas se ignoran.
-
-### Paso 2: Arrastrarlo a la carpeta del script
-
-Arrastrá el Excel a la carpeta `AutoJP\reasignar-casos-pega-lob`, la misma donde está el archivo `ui_automation.py`.
-
-### Paso 3: Abrir la terminal en la carpeta del script
+### Paso 1: Abrir la terminal en la carpeta del script
 
 Abrí la terminal (`devshell`). Antes de copiar la línea, reemplazá `SID` por tu SID. Después pegala y apretá Enter:
 
@@ -184,22 +171,24 @@ Abrí la terminal (`devshell`). Antes de copiar la línea, reemplazá `SID` por 
 cd "C:\Users\SID\OneDrive - JPMorgan Chase\Desktop\AutoJP\reasignar-casos-pega-lob"
 ```
 
-### Paso 4: Correr el script
+### Paso 2: Correr el script
 
-Copiá este comando, cambiá `NOMBRE.xlsx` por el nombre de tu Excel (dejá las comillas), pegalo en la terminal y apretá Enter:
+Copiá este comando, pegalo en la terminal y apretá Enter:
 
 ```
-python ui_automation.py "NOMBRE.xlsx"
+python ui_automation.py
 ```
 
-### Paso 5: Iniciar sesión
+El script toma el Excel de la carpeta de red, configurada en `config_local.py`. Si el Excel no está, lo avisa en la terminal y no abre el navegador.
+
+### Paso 3: Iniciar sesión
 
 1. Se abre el navegador con Pega. El script hace solo los clicks de SSO.
 2. Completá usuario, contraseña y MFA en el navegador.
 3. Cuando veas Pega, volvé a la terminal y apretá Enter.
 4. El script abre la basket solo.
 
-### Paso 6: Esperar
+### Paso 4: Esperar
 
 - No toques el mouse ni el teclado mientras corre. El script trabaja solo.
 - Procesa una fila por vez. Para cada fila busca el JPV en la basket, lo abre, y reasigna según la LOB.
@@ -213,9 +202,9 @@ python ui_automation.py "NOMBRE.xlsx"
 | `ERROR` | Algo falló al reasignar | Avisale a Alan con la línea de la terminal y el archivo `error_fila_N.png` |
 | `NO PROCESADA` | La basket se cerró antes de llegar a la fila | Avisale a Alan |
 
-### Paso 7: Revisar el resultado
+### Paso 5: Revisar el resultado
 
-Al terminar quedan dos cosas:
+Al terminar quedan dos cosas en la carpeta del script:
 
 - `resultados.csv`: una fila por cada fila del Excel, con su estado y el detalle.
 - `error_fila_N.png`: captura de la pantalla de Pega en la fila N, solo si esa fila dio `ERROR`.
@@ -224,6 +213,7 @@ Si hubo `ERROR` o `NO PROCESADA`, pasale `resultados.csv` y las capturas a Alan.
 
 ## Si algo sale mal (Automatización B)
 
+- **"No encuentro el XLSX":** la carpeta de red no está conectada, o la ruta de `config_local.py` cambió. Revisá la conexión y avisale a Alan.
 - **Hay una fila en `ERROR`:** avisale a Alan. No vuelvas a correr el Excel hasta que te responda, porque esa fila puede haber quedado a medio camino en Pega. Revisala a mano antes de volver a correr.
 - **La basket se cerró:** las filas que faltaban quedan `NO PROCESADA`. Avisale a Alan antes de volver a correr.
 - **Querés cortar la corrida:** apretá Ctrl+C en la terminal y avisale a Alan. Revisá en Pega la fila que estaba procesando.
