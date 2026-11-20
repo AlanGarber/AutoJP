@@ -91,6 +91,7 @@ TEAMS_ALLOWED = {"AUTOCV", "FX ChaseTr", "iFX"}  # solo se procesan las filas de
 COL_CASE_TYPE = "D"        # columna con el tipo de caso
 CASE_TYPE_TRIGGER = "Miscellaneous"  # si la fila tiene este tipo, antes de reasignar se cambia el tipo de caso
 CASE_TYPES_SOLO_AUTOCV = {"Miscellaneous", "OFAC"}  # estos tipos solo se procesan si el equipo es AUTOCV; si no, se omiten
+EXCEPCIONES_SOLO_AUTOCV = {("iFX", "Miscellaneous")}  # (equipo, tipo) que sí se procesan aunque el equipo no sea AUTOCV
 TEAM_AUTOCV = "AUTOCV"
 NEW_CASE_TYPE = "JPM-Work-Shared-WDPC-Exp-AmendBen"  # VALUE de la opción en el dropdown (no el texto visible)
 
@@ -194,6 +195,16 @@ def contiene_frase(texto: str, frase: str) -> bool:
     return re.search(rf"(?<![A-Za-z0-9]){partes}(?![A-Za-z0-9])", texto, re.IGNORECASE) is not None
 
 
+def solo_autocv(team: str, case_type: str) -> bool:
+    """True si la fila tiene un tipo que solo se procesa para AUTOCV y su equipo no tiene excepción. Sin distinguir mayúsculas."""
+    equipo, tipo = team.casefold(), case_type.casefold()
+    if tipo not in {t.casefold() for t in CASE_TYPES_SOLO_AUTOCV}:
+        return False
+    if equipo == TEAM_AUTOCV.casefold():
+        return False
+    return (equipo, tipo) not in {(e.casefold(), t.casefold()) for e, t in EXCEPCIONES_SOLO_AUTOCV}
+
+
 def menu_option_visible(pega: FrameLocator, selector: str) -> bool:
     """True si la opción aparece en el menú Actions dentro de MENU_CHECK_MS."""
     try:
@@ -279,7 +290,8 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
         #    Change case type > Amendment > Submit, y vuelve a abrir Actions.
         paso = "Actions"
         pega.locator(ACTIONS_MENU).click()
-        if case_type == CASE_TYPE_TRIGGER and menu_option_visible(pega, CHANGE_CASE_TYPE_OPTION):
+        es_trigger = case_type.casefold() == CASE_TYPE_TRIGGER.casefold()
+        if es_trigger and menu_option_visible(pega, CHANGE_CASE_TYPE_OPTION):
             paso = "Change case type"
             pega.locator(CHANGE_CASE_TYPE_OPTION).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
@@ -291,7 +303,7 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
             page.wait_for_timeout(STEP_PAUSE_MS)
             paso = "Actions (tras cambio de tipo)"
             pega.locator(ACTIONS_MENU).click()
-        elif case_type == CASE_TYPE_TRIGGER:
+        elif es_trigger:
             log.info("Tipo Miscellaneous sin Change case type en el menú: sigue con Reassign")
 
         # 3) Reassign (si no aparece: Step By Step, y después Reassign)
@@ -408,7 +420,7 @@ def main() -> None:
                     log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
                     results.append([row_no, assignee, jpv, "OMITIDA", motivo])
                     continue
-                if case_type.casefold() in {t.casefold() for t in CASE_TYPES_SOLO_AUTOCV} and team != TEAM_AUTOCV:
+                if solo_autocv(team, case_type):
                     motivo = f"tipo '{case_type}' solo se procesa para el equipo {TEAM_AUTOCV}"
                     log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
                     results.append([row_no, assignee, jpv, "OMITIDA", motivo])
