@@ -89,6 +89,11 @@ COL_JPV = "B"              # columna con el identificador JPV
 COL_TEAM = "C"             # columna con el equipo
 TEAMS_ALLOWED = {"AUTOCV", "FX ChaseTr", "iFX"}  # solo se procesan las filas de estos equipos; el resto se omite
 COL_CASE_TYPE = "D"        # columna con el tipo de caso
+# Archivo failed: si el nombre del archivo contiene esta palabra, el script lo lee como failed.
+# Columnas: A = Investigator (assignee), B = JPV, E = Sub LOB. No tiene equipo ni tipo de caso.
+FAILED_FILE_MARK = "failed"
+COL_SUB_LOB = "E"          # solo en failed: columna con el Sub LOB
+FAILED_SUB_LOB = "12"      # solo en failed: por ahora se procesan solo las filas cuyo Sub LOB dice esto (palabra completa)
 CASE_TYPE_TRIGGER = "Miscellaneous"  # si la fila tiene este tipo, antes de reasignar se cambia el tipo de caso
 CASE_TYPES_SOLO_AUTOCV = {"Miscellaneous", "OFAC"}  # estos tipos solo se procesan si el equipo es AUTOCV; si no, se omiten
 EXCEPCIONES_SOLO_AUTOCV = {("iFX", "Miscellaneous")}  # (equipo, tipo) que sí se procesan aunque el equipo no sea AUTOCV
@@ -134,8 +139,11 @@ def to_text(value) -> str:
     return str(value).strip()
 
 
-def read_rows(path: Path):
-    """Devuelve [(nro_fila, assignee, jpv, equipo, tipo_caso)] para cada fila válida del XLSX."""
+def read_rows(path: Path, failed: bool = False):
+    """Devuelve [(nro_fila, assignee, jpv, equipo, tipo_caso)] para cada fila válida del XLSX.
+
+    En failed, el cuarto campo es el Sub LOB (columna E) y el tipo de caso queda vacío.
+    """
     wb = load_workbook(path, read_only=True, data_only=True)
     try:
         hoja = next((h for h in XLSX_SHEETS if h in wb.sheetnames), None)
@@ -146,8 +154,12 @@ def read_rows(path: Path):
         ws = wb[hoja]
         idx_assignee = column_index_from_string(COL_ASSIGNEE) - 1
         idx_jpv = column_index_from_string(COL_JPV) - 1
-        idx_team = column_index_from_string(COL_TEAM) - 1
-        idx_case_type = column_index_from_string(COL_CASE_TYPE) - 1
+        if failed:
+            idx_team = column_index_from_string(COL_SUB_LOB) - 1
+            idx_case_type = None
+        else:
+            idx_team = column_index_from_string(COL_TEAM) - 1
+            idx_case_type = column_index_from_string(COL_CASE_TYPE) - 1
         first_row = 2 if XLSX_HAS_HEADER else 1
 
         rows = []
@@ -158,7 +170,9 @@ def read_rows(path: Path):
             assignee = NAME_ALIASES.get(assignee, assignee)
             jpv = to_text(cells[idx_jpv]) if idx_jpv < len(cells) else ""
             team = to_text(cells[idx_team]) if idx_team < len(cells) else ""
-            case_type = to_text(cells[idx_case_type]) if idx_case_type < len(cells) else ""
+            case_type = ""
+            if idx_case_type is not None and idx_case_type < len(cells):
+                case_type = to_text(cells[idx_case_type])
             if not assignee or not jpv:
                 if assignee or jpv:  # fila incompleta: se avisa, no se procesa
                     log.warning("Fila %d omitida (falta assignee o JPV)", row_no)
@@ -392,7 +406,10 @@ def main() -> None:
     if xlsx_path.suffix.lower() != ".xlsx":
         sys.exit("El archivo de entrada tiene que ser .xlsx")
 
-    rows = read_rows(xlsx_path)
+    failed = FAILED_FILE_MARK in xlsx_path.name.casefold()
+    rows = read_rows(xlsx_path, failed)
+    if failed:
+        log.info("Archivo failed: solo se procesan las filas con Sub LOB %s", FAILED_SUB_LOB)
     log.info("%d filas para procesar", len(rows))
     if not rows:
         return
@@ -415,16 +432,24 @@ def main() -> None:
                 if detenido:
                     results.append([row_no, assignee, jpv, "NO PROCESADA", "corrida detenida por un error anterior"])
                     continue
-                if team not in TEAMS_ALLOWED:
-                    motivo = f"equipo '{team}' fuera de TEAMS_ALLOWED"
-                    log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
-                    results.append([row_no, assignee, jpv, "OMITIDA", motivo])
-                    continue
-                if solo_autocv(team, case_type):
-                    motivo = f"tipo '{case_type}' solo se procesa para el equipo {TEAM_AUTOCV}"
-                    log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
-                    results.append([row_no, assignee, jpv, "OMITIDA", motivo])
-                    continue
+                if failed:
+                    # En failed, "team" es el Sub LOB (columna E). No hay equipo ni tipo de caso.
+                    if not contiene_valor(team, FAILED_SUB_LOB):
+                        motivo = f"sub LOB '{team}' fuera de {FAILED_SUB_LOB}"
+                        log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
+                        results.append([row_no, assignee, jpv, "OMITIDA", motivo])
+                        continue
+                else:
+                    if team not in TEAMS_ALLOWED:
+                        motivo = f"equipo '{team}' fuera de TEAMS_ALLOWED"
+                        log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
+                        results.append([row_no, assignee, jpv, "OMITIDA", motivo])
+                        continue
+                    if solo_autocv(team, case_type):
+                        motivo = f"tipo '{case_type}' solo se procesa para el equipo {TEAM_AUTOCV}"
+                        log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
+                        results.append([row_no, assignee, jpv, "OMITIDA", motivo])
+                        continue
                 try:
                     process_row(page, assignee, jpv, case_type)
                     log.info(f"{GREEN}OK - JPV %s asignado a %s{RESET}", jpv, assignee)
