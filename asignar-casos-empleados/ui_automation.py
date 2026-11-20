@@ -77,6 +77,7 @@ CLOSE_BUTTON = "role=button[name='Close'] >> visible=true"          # PegaGadget
 WORK_TAB = 'text="Work" >> visible=true'                            # pestaña Work del caso (texto exacto, como en codegen)
 WORK_PANEL = "role=tabpanel[name='Work'] >> visible=true"           # contenido de la pestaña Work: ahí figura el asignado
 OWNERS_ALLOWED = ("FX12", "AutoCV")                 # el reassign solo se hace si el campo Work dice alguno de estos
+OWNER_NO_REASIGNAR = "AutoCV Automation"           # si el campo Work dice esto, la fila se saltea aunque diga AutoCV
 BOT_ID = "B089707"                                 # si el asignado actual contiene este ID, la fila se saltea
 CHANGE_CASE_TYPE_OPTION = "role=menuitem[name='Change case type'] >> visible=true"  # opción dentro de Actions
 NEW_CASE_TYPE_LABEL = "Select New Case Type"        # label del dropdown donde se elige el nuevo tipo de caso
@@ -187,6 +188,12 @@ def contiene_valor(texto: str, valor: str) -> bool:
     return re.search(rf"(?<![A-Za-z0-9]){re.escape(valor)}(?![A-Za-z0-9])", texto) is not None
 
 
+def contiene_frase(texto: str, frase: str) -> bool:
+    """True si la frase aparece como palabra completa, sin importar mayúsculas ni cómo se partan los espacios (salto de línea incluido)."""
+    partes = r"\s+".join(re.escape(p) for p in frase.split())
+    return re.search(rf"(?<![A-Za-z0-9]){partes}(?![A-Za-z0-9])", texto, re.IGNORECASE) is not None
+
+
 def menu_option_visible(pega: FrameLocator, selector: str) -> bool:
     """True si la opción aparece en el menú Actions dentro de MENU_CHECK_MS."""
     try:
@@ -260,6 +267,8 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
             raise ValueError("no se pudo leer el asignado actual")
         if contiene_valor(owner, BOT_ID):
             raise SkipRow(f"asignado al bot {BOT_ID}")
+        if contiene_frase(owner, OWNER_NO_REASIGNAR):
+            raise SkipRow(f"no se reasigna. Campo work dice {OWNER_NO_REASIGNAR}")
         if not any(contiene_valor(owner, o) for o in OWNERS_ALLOWED):
             raise SkipRow(f"no se reasigna: el campo Work no dice {' ni '.join(OWNERS_ALLOWED)}")
         if menu_option_visible(pega, REOPEN_BUTTON):
