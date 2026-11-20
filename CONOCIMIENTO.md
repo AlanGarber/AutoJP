@@ -33,6 +33,13 @@ Por cada fila del XLSX, busca el JPV en la search bar y reasigna el caso al assi
 - Las demás columnas se ignoran.
 - Hoja: `Cases Distribution` o `Distribution` (`XLSX_SHEETS`, nombres exactos, en ese orden). Desde 2026-11-20 se acepta también `Distribution`, porque llegó un XLSX con esa hoja. Si no está ninguna, el script se detiene antes de abrir el navegador (regla del 2026-11-19). Con encabezado (`XLSX_HAS_HEADER`).
 
+### Archivo failed (2026-11-20)
+- Se reconoce porque el nombre del archivo contiene `failed` (`FAILED_FILE_MARK`).
+- Columna A: Investigator (assignee). Columna B: JPV. Columna E: Sub LOB. No tiene equipo ni tipo de caso.
+- La columna E solo tiene dos valores: `12` y `13`. Solo se procesan las filas con `12` (`FAILED_SUB_LOB`), confirmado por Alan el 2026-11-20. "Por ahora": si cambia, se cambia esa constante.
+- Hoja: `Distribution` (confirmado por Alan el 2026-11-20).
+- Las demás reglas (Work, owner, Reopen, Reassign) son las mismas que para el archivo normal. Pendiente de confirmar con Alan si aplican igual.
+
 ### Flujo por fila
 1. Escribe el JPV en la search bar y confirma con Enter (`SEARCH_WITH_ENTER`). Espera `POST_SEARCH_PAUSE_MS`.
 2. Abre la pestaña **Work** y verifica el caso. Si la fila no cumple, se saltea sin tocar el caso:
@@ -59,7 +66,7 @@ Por cada fila del XLSX, busca el JPV en la search bar y reasigna el caso al assi
 Estados: `OK`, `ERROR`, `OMITIDA` (equipo fuera de `TEAMS_ALLOWED`) y `NO PROCESADA` (la corrida se detuvo antes).
 
 ### Uso (VDI)
-Se corre desde la carpeta `asignar-casos-empleados` con el XLSX del día, por ejemplo `python ui_automation.py "Distribution.xlsx"`. El archivo de la mañana y el de la tarde tienen nombres distintos; el de *failed* todavía no está implementado. Las instrucciones paso a paso para personas no técnicas están en `INSTRUCCIONES.MD`.
+Se corre desde la carpeta `asignar-casos-empleados` con el XLSX del día, por ejemplo `python ui_automation.py "Distribution.xlsx"`. El archivo de la mañana y el de la tarde tienen nombres distintos; el de *failed* se reconoce porque su nombre contiene `failed` (`FAILED_FILE_MARK`) y se lee con sus propias columnas (ver sección 3, "Archivo failed"). Las instrucciones paso a paso para personas no técnicas están en `INSTRUCCIONES.MD`.
 
 ### Documentación de apoyo
 - `FLUJOS_PEGA.md` (en la carpeta): selectores, orden de pasos y funciones reutilizables de PRPC. Sirve de referencia para otras automatizaciones de Pega.
@@ -184,7 +191,7 @@ Al revisar un caso concreto se vio que casi todas las respuestas del equipo lleg
 
 ### asignar-casos-empleados
 - Problema con el botón **Actions** en el segundo caso: su estructura no coincide con el selector. Quedó pendiente de revisar el HTML o el codegen de ese botón.
-- Falta implementar el archivo de *failed*.
+- Archivo de *failed* implementado (2026-11-20): hoja `Distribution`, Sub LOB `12` (los valores son solo `12` y `13`). Falta probarlo en la VDI.
 
 ### reasignar-casos-pega-lob
 - Cambiar la validación del owner a igualdad exacta, con el locator del campo **Case owner** en la pestaña Work.
