@@ -38,6 +38,7 @@ Por cada fila del XLSX, busca el JPV en la search bar y reasigna el caso al assi
 2. Abre la pestaña **Work** y verifica el caso. Si la fila no cumple, se saltea sin tocar el caso:
    - Si el asignado actual contiene el ID del bot (`BOT_ID`), se saltea.
    - Si el campo Work no contiene ninguno de los owners permitidos (`OWNERS_ALLOWED`), se saltea.
+   - Si el campo Work dice `AutoCV Automation`, se saltea aunque también diga `AutoCV` (`OWNER_NO_REASIGNAR`, regla del 2026-11-20). Se reasigna solo si dice `AutoCV`.
    - Si aparece el botón de reabrir (`REOPEN_BUTTON`), se saltea.
 3. Si el tipo de caso es `CASE_TYPE_TRIGGER` y aparece **Change case type** en Actions, cambia el tipo a `NEW_CASE_TYPE` (se elige por *value*, no por texto visible), hace Submit y vuelve a abrir Actions.
 4. **Reassign**: si la opción no está en el menú, prueba en este orden **Step By Step**, **Perform research** y **MessageAttached**. Luego clickea **Reassign**.
