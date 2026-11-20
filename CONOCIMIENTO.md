@@ -31,7 +31,7 @@ Por cada fila del XLSX, busca el JPV en la search bar y reasigna el caso al assi
 - Columna C: equipo. Solo se procesan los equipos de `TEAMS_ALLOWED`; el resto queda `OMITIDA`.
 - Columna D: tipo de caso. Los tipos `Miscellaneous` y `OFAC` solo se procesan si el equipo es AUTOCV (regla del 2026-11-19); para otros equipos la fila queda `OMITIDA` sin tocar el caso.
 - Las demás columnas se ignoran.
-- Hoja: `Cases Distribution` (`XLSX_SHEET`, nombre exacto). Si el XLSX no tiene esa hoja, el script se detiene antes de abrir el navegador (regla del 2026-11-19). Con encabezado (`XLSX_HAS_HEADER`).
+- Hoja: `Cases Distribution` o `Distribution` (`XLSX_SHEETS`, nombres exactos, en ese orden). Desde 2026-11-20 se acepta también `Distribution`, porque llegó un XLSX con esa hoja. Si no está ninguna, el script se detiene antes de abrir el navegador (regla del 2026-11-19). Con encabezado (`XLSX_HAS_HEADER`).
 
 ### Flujo por fila
 1. Escribe el JPV en la search bar y confirma con Enter (`SEARCH_WITH_ENTER`). Espera `POST_SEARCH_PAUSE_MS`.
