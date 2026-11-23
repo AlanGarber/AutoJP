@@ -4,7 +4,7 @@ Reasigna casos de Pega a la work queue que corresponde a su LOB, a partir de un 
 
 1. Hace click en el JPV (columna C, **ID**) en la basket. La basket es un popup.
 2. El caso se abre en la ventana principal de Pega. Pestaña **Work**: si el case owner no es `FX1213`, la fila se saltea.
-3. **Actions** > **Reassign**. Si **Reassign** no aparece en el menú, elige **Perform research** (la opción tiene el nombre del empleado después) y después **Reassign**.
+3. **Actions** > **Reassign**. Si **Reassign** no aparece en el menú, elige **MessageAttached** y después **Reassign** (flujo directo, igual que en la automatización A). Si tampoco hay MessageAttached, elige **Perform research** (la opción tiene el nombre del empleado después) y después **Reassign**.
 4. Elige la work queue en el dropdown **Work Queue**:
    - Columna A (**Comments**) `Corp&FI` → `WDPCTSTWRKFX12`. `Retail` → `WDPCTSRWRKFX13`.
    - Caso especial (**en pausa**, `CASO_ESPECIAL_ACTIVO = False`): si A es `To check` **y** B es `FX Retail Inv` a la vez → `WDPCTSRWRKFX13` (TSFX13). Mientras esté en pausa, esas filas se omiten. Para reactivarlo, poné `CASO_ESPECIAL_ACTIVO = True`.

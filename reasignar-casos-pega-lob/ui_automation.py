@@ -82,6 +82,10 @@ WORK_PANEL = "role=tabpanel[name='Work'] >> visible=true"         # contenido de
 ACTIONS_MENU = "role=button[name='Actions'] >> visible=true"
 REASSIGN_OPTION = "role=menuitem[name='Reassign'] >> visible=true"
 PERFORM_RESEARCH_OPTION = "role=menuitem[name=/^Perform research/i] >> visible=true"  # tiene el nombre del empleado después
+MESSAGE_ATTACHED_OPTIONS = (  # puede ser menuitem o botón
+    "role=menuitem[name=/^MessageAttached/i] >> visible=true",
+    "role=button[name=/^MessageAttached/i] >> visible=true",
+)
 MENU_CHECK_MS = 2000           # cuánto esperar a que aparezca una opción del menú Actions antes de decidir cuál usar
 WORK_QUEUE_SELECTOR = 'internal:label="Work Queue"i'              # dropdown de la work queue destino (igual que get_by_label del codegen)
 SUBMIT_BUTTON = "role=button[name='Submit'] >> visible=true"
@@ -518,6 +522,14 @@ def buscar_frame(page: Page, selector: str, timeout_ms: int):
         page.wait_for_timeout(500)
 
 
+def primera_opcion_visible(page: Page, selectores, timeout_ms: int):
+    """Devuelve el primer selector de la lista que aparece en Pega, o None."""
+    for selector in selectores:
+        if buscar_frame(page, selector, timeout_ms) is not None:
+            return selector
+    return None
+
+
 def clic(page: Page, selector: str, paso: str) -> None:
     """Hace click en el elemento dentro del iframe de Pega que lo contiene."""
     frame = buscar_frame(page, selector, PEGA_TIMEOUT_MS)
@@ -555,13 +567,20 @@ def reasignar_fila(main_page: Page, basket: Page, jpv: str, destino: str, dry_ru
 
     # 3. Actions > Reassign. Si Reassign no está en el menú, primero Perform research.
     clic(main_page, ACTIONS_MENU, "botón Actions")
+    # Mismo orden que en asignar-casos-empleados: Reassign directo, después MessageAttached,
+    # y por último Perform research. En MessageAttached y Perform research, Reassign queda dentro.
     if buscar_frame(main_page, REASSIGN_OPTION, MENU_CHECK_MS) is not None:
         clic(main_page, REASSIGN_OPTION, "opción Reassign")
-    elif buscar_frame(main_page, PERFORM_RESEARCH_OPTION, MENU_CHECK_MS) is not None:
-        clic(main_page, PERFORM_RESEARCH_OPTION, "opción Perform research")
-        clic(main_page, REASSIGN_OPTION, "opción Reassign (dentro de Perform research)")
     else:
-        raise RuntimeError("no apareció Reassign ni Perform research en el menú Actions")
+        message_attached = primera_opcion_visible(main_page, MESSAGE_ATTACHED_OPTIONS, MENU_CHECK_MS)
+        if message_attached is not None:
+            clic(main_page, message_attached, "opción MessageAttached")
+            clic(main_page, REASSIGN_OPTION, "opción Reassign (dentro de MessageAttached)")
+        elif buscar_frame(main_page, PERFORM_RESEARCH_OPTION, MENU_CHECK_MS) is not None:
+            clic(main_page, PERFORM_RESEARCH_OPTION, "opción Perform research")
+            clic(main_page, REASSIGN_OPTION, "opción Reassign (dentro de Perform research)")
+        else:
+            raise RuntimeError("no apareció Reassign, MessageAttached ni Perform research en el menú Actions")
 
     # 4. Work queue destino según LOB
     frame = buscar_frame(main_page, WORK_QUEUE_SELECTOR, PEGA_TIMEOUT_MS)
