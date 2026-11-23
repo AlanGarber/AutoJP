@@ -228,6 +228,21 @@ def menu_option_visible(pega: FrameLocator, selector: str) -> bool:
         return False
 
 
+def esperar_alguna_visible(pega: FrameLocator, selectores: list) -> bool:
+    """True si alguno de los selectores aparece dentro de MENU_CHECK_MS. Espera una sola vez para todos.
+
+    Los selectores ya tienen '>> visible=true', así que cada uno solo matchea elementos visibles.
+    """
+    union = pega.locator(selectores[0])
+    for sel in selectores[1:]:
+        union = union.or_(pega.locator(sel))
+    try:
+        union.first.wait_for(state="visible", timeout=MENU_CHECK_MS)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def find_frame_with(page: Page, selector: str) -> FrameLocator:
     """Devuelve el iframe de Pega que contiene el elemento indicado.
 
@@ -320,21 +335,22 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
         elif es_trigger:
             log.info("Tipo Miscellaneous sin Change case type en el menú: sigue con Reassign")
 
-        # 3) Reassign (si no aparece: Step By Step, y después Reassign)
+        # 3) Reassign. Si no aparece: MessageAttached (directo), o Step By Step, o Perform research; y después Reassign
         if not menu_option_visible(pega, REASSIGN_OPTION):
-            step_by_step = next((sel for sel in STEP_BY_STEP_OPTIONS if menu_option_visible(pega, sel)), None)
-            if step_by_step:
-                paso = "Step By Step"
-                pega.locator(step_by_step).click()
-            elif menu_option_visible(pega, PERFORM_RESEARCH_OPTION):
-                paso = "Perform research"
-                pega.locator(PERFORM_RESEARCH_OPTION).click()
-            else:
-                paso = "MessageAttached"
-                message = next((sel for sel in MESSAGE_ATTACHED_OPTIONS if menu_option_visible(pega, sel)), None)
-                if message is None:
-                    raise TimeoutError("no apareció Reassign, Step By Step, Perform research ni MessageAttached")
-                pega.locator(message).click()
+            # Un solo tiempo de espera para todas las alternativas, en orden de prioridad
+            alternativas = [
+                ("MessageAttached", MESSAGE_ATTACHED_OPTIONS),
+                ("Step By Step", STEP_BY_STEP_OPTIONS),
+                ("Perform research", (PERFORM_RESEARCH_OPTION,)),
+            ]
+            if not esperar_alguna_visible(pega, [sel for _, sels in alternativas for sel in sels]):
+                raise TimeoutError("no apareció Reassign, MessageAttached, Step By Step ni Perform research")
+            for nombre, sels in alternativas:
+                sel = next((s for s in sels if pega.locator(s).count() > 0), None)
+                if sel:
+                    paso = nombre
+                    pega.locator(sel).click()
+                    break
             page.wait_for_timeout(STEP_PAUSE_MS)
         paso = "Reassign"
         pega.locator(REASSIGN_OPTION).click()
