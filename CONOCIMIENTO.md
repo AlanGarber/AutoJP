@@ -47,6 +47,7 @@ Por cada fila del XLSX, busca el JPV en la search bar y reasigna el caso al assi
    - Si el campo Work no contiene ninguno de los owners permitidos (`OWNERS_ALLOWED`), se saltea.
    - Si el campo Work dice `AutoCV Automation`, se saltea aunque también diga `AutoCV` (`OWNER_NO_REASIGNAR`, regla del 2026-11-20). Se reasigna solo si dice `AutoCV`.
    - Si aparece el botón de reabrir (`REOPEN_BUTTON`), se saltea.
+2a. Si Actions tiene **ReviewPymtPaidCorrectly**, el flujo es: Actions > ReviewPymtPaidCorrectly > Actions > **Cancel this Assignment** > Submit > Actions, y sigue el flujo normal. Pedido por Alan el 2026-11-24.
 3. Si el tipo de caso es `CASE_TYPE_TRIGGER` y aparece **Change case type** en Actions, cambia el tipo a `NEW_CASE_TYPE` (se elige por *value*, no por texto visible), hace Submit y vuelve a abrir Actions.
 4. **Reassign**: si la opción no está en el menú, prueba en este orden **MessageAttached**, **Step By Step** y **Perform research**. Luego clickea **Reassign**. Cambio pedido por Alan el 2026-11-23: MessageAttached va primero, porque es el flujo directo.
 5. Elige el assignee en el dropdown **operator**. Si el nombre del XLSX no coincide con el de la app, se usa `NAME_ALIASES`.
