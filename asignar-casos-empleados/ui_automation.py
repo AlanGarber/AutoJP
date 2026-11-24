@@ -30,6 +30,7 @@ import logging
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -119,9 +120,9 @@ BROWSER_CHANNEL = "msedge"  # "chrome" o "msedge": usa el navegador ya instalado
 HEADLESS = False        # False: ves la automatización corriendo
 AUTO_SSO_CLICKS = True  # True: el script hace click en "Login with SSO" y en "JPMorgan Chase (Default)"
 LOGIN_TIMEOUT_MS = 120000  # cuánto esperar a que termines usuario, contraseña y MFA (la barra de búsqueda aparece al terminar)
-STEP_PAUSE_MS = 300     # pausa breve entre pasos
+STEP_PAUSE_MS = 200     # pausa breve entre pasos (antes 300; los clicks ya esperan a que el elemento esté listo)
 PAUSE_BETWEEN_ROWS_MS = 1500  # pausa mínima entre una fila y la siguiente
-POST_SEARCH_PAUSE_MS = 2000   # espera después de buscar el JPV, antes de tocar el caso (Work, Actions)
+POST_SEARCH_PAUSE_MS = 1000   # espera después de buscar el JPV, antes de tocar el caso (antes 2000; si vuelve a tocar el caso anterior, subirla)
 RECOVER_TIMEOUT_MS = 15000  # cuánto esperar la search bar al recuperarse de un error
 
 # Colores para la terminal: verde = OK, rojo = error
@@ -287,8 +288,42 @@ def valor_opcion(select, nombre: str) -> str:
     return opcion.get_attribute("value") or opcion.text_content().strip()
 
 
+class Cronometro:
+    """Mide cuánto tarda cada paso de una fila. Cada vez que cambia el paso, cierra el anterior."""
+
+    def __init__(self) -> None:
+        self.reiniciar()
+
+    def reiniciar(self) -> None:
+        self.paso_actual = None
+        self.inicio_paso = time.monotonic()
+        self.inicio_fila = self.inicio_paso
+        self.tiempos = []
+
+    def marcar(self, nombre: str) -> str:
+        ahora = time.monotonic()
+        if self.paso_actual is not None:
+            self.tiempos.append((self.paso_actual, ahora - self.inicio_paso))
+        self.paso_actual = nombre
+        self.inicio_paso = ahora
+        return nombre
+
+    def resumen(self) -> str:
+        ahora = time.monotonic()
+        tiempos = list(self.tiempos)
+        if self.paso_actual is not None:
+            tiempos.append((self.paso_actual, ahora - self.inicio_paso))
+        lentos = sorted(tiempos, key=lambda t: t[1], reverse=True)[:4]
+        detalle = ", ".join(f"{nombre} {segundos:.1f} s" for nombre, segundos in lentos)
+        return f"{ahora - self.inicio_fila:.1f} s en total. Más lentos: {detalle}"
+
+
+CRONO = Cronometro()
+
+
 def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
-    paso = "buscar JPV"
+    CRONO.reiniciar()
+    paso = CRONO.marcar("buscar JPV")
     try:
         # 1) Buscar el JPV
         search = page.locator(SEARCH_INPUT)
@@ -304,13 +339,13 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
         page.wait_for_timeout(POST_SEARCH_PAUSE_MS)
 
         # Pestaña Work y verificación del asignado: si es el bot, la fila se saltea
-        paso = "pestaña Work"
+        paso = CRONO.marcar("pestaña Work")
         find_frame_with(page, WORK_TAB).locator(WORK_TAB).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
 
-        paso = "iframe de Pega (botón Actions)"
+        paso = CRONO.marcar("iframe de Pega (botón Actions)")
         pega = find_pega_frame(page)
-        paso = "leer asignado actual"
+        paso = CRONO.marcar("leer asignado actual")
         owner = find_frame_with(page, WORK_PANEL).locator(WORK_PANEL).inner_text(timeout=PEGA_FRAME_TIMEOUT_MS)
         if not owner.strip():
             raise ValueError("no se pudo leer el asignado actual")
@@ -326,43 +361,50 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
 
         # 2) Actions. Solo para Miscellaneous y si aparece Change case type:
         #    Change case type > Amendment > Submit, y vuelve a abrir Actions.
-        paso = "Actions"
+        paso = CRONO.marcar("Actions")
         pega.locator(ACTIONS_MENU).click()
+
+        # Una sola espera para todo el menú: en cuanto aparece cualquier opción, se mira lo demás sin esperar de nuevo.
+        # Si no aparece nada, el menú no se abrió y se corta acá.
+        opciones_menu = [*REVIEW_PYMT_OPTIONS, CHANGE_CASE_TYPE_OPTION, REASSIGN_OPTION,
+                         *MESSAGE_ATTACHED_OPTIONS, *STEP_BY_STEP_OPTIONS, PERFORM_RESEARCH_OPTION]
+        if not esperar_alguna_visible(pega, opciones_menu):
+            raise TimeoutError("el menú Actions no mostró ninguna opción")
 
         # 2a) ReviewPymtPaidCorrectly: Actions > ReviewPymtPaidCorrectly > Actions > Cancel this Assignment > Submit.
         #     Después el Actions queda abierto y sigue el flujo normal.
-        if esperar_alguna_visible(pega, list(REVIEW_PYMT_OPTIONS)):
+        if any(pega.locator(s).count() > 0 for s in REVIEW_PYMT_OPTIONS):
             sel_review = next(s for s in REVIEW_PYMT_OPTIONS if pega.locator(s).count() > 0)
-            paso = "ReviewPymtPaidCorrectly"
+            paso = CRONO.marcar("ReviewPymtPaidCorrectly")
             pega.locator(sel_review).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
-            paso = "Actions (antes de Cancel this Assignment)"
+            paso = CRONO.marcar("Actions (antes de Cancel this Assignment)")
             pega.locator(ACTIONS_MENU).click()
-            paso = "Cancel this Assignment"
+            paso = CRONO.marcar("Cancel this Assignment")
             if not esperar_alguna_visible(pega, list(CANCEL_ASSIGNMENT_OPTIONS)):
                 raise TimeoutError("no apareció Cancel this Assignment en el menú Actions")
             sel_cancel = next(s for s in CANCEL_ASSIGNMENT_OPTIONS if pega.locator(s).count() > 0)
             pega.locator(sel_cancel).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
-            paso = "Submit (Cancel this Assignment)"
+            paso = CRONO.marcar("Submit (Cancel this Assignment)")
             pega.locator(SUBMIT_BUTTON).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
-            paso = "Actions (tras Cancel this Assignment)"
+            paso = CRONO.marcar("Actions (tras Cancel this Assignment)")
             pega.locator(ACTIONS_MENU).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
 
         es_trigger = case_type.casefold() == CASE_TYPE_TRIGGER.casefold()
-        if es_trigger and menu_option_visible(pega, CHANGE_CASE_TYPE_OPTION):
-            paso = "Change case type"
+        if es_trigger and pega.locator(CHANGE_CASE_TYPE_OPTION).count() > 0:
+            paso = CRONO.marcar("Change case type")
             pega.locator(CHANGE_CASE_TYPE_OPTION).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
-            paso = "Select New Case Type"
+            paso = CRONO.marcar("Select New Case Type")
             pega.get_by_label(NEW_CASE_TYPE_LABEL).select_option(value=NEW_CASE_TYPE)
             page.wait_for_timeout(STEP_PAUSE_MS)
-            paso = "Submit (cambio de tipo)"
+            paso = CRONO.marcar("Submit (cambio de tipo)")
             pega.locator(SUBMIT_BUTTON).click()
             page.wait_for_timeout(STEP_PAUSE_MS)
-            paso = "Actions (tras cambio de tipo)"
+            paso = CRONO.marcar("Actions (tras cambio de tipo)")
             pega.locator(ACTIONS_MENU).click()
         elif es_trigger:
             log.info("Tipo Miscellaneous sin Change case type en el menú: sigue con Reassign")
@@ -380,25 +422,25 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
             for nombre, sels in alternativas:
                 sel = next((s for s in sels if pega.locator(s).count() > 0), None)
                 if sel:
-                    paso = nombre
+                    paso = CRONO.marcar(nombre)
                     pega.locator(sel).click()
                     break
             page.wait_for_timeout(STEP_PAUSE_MS)
-        paso = "Reassign"
+        paso = CRONO.marcar("Reassign")
         pega.locator(REASSIGN_OPTION).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
 
         # 4) Elegir el assignee en el dropdown "operator" (sin importar mayúsculas ni espacios)
-        paso = "operator (assignee)"
+        paso = CRONO.marcar("operator (assignee)")
         operator = pega.get_by_label(OPERATOR_LABEL)
         operator.select_option(value=valor_opcion(operator, assignee))
         page.wait_for_timeout(STEP_PAUSE_MS)
 
         # 5) Submit y Close (sin Save: la reasignación no deja nada por guardar)
-        paso = "Submit"
+        paso = CRONO.marcar("Submit")
         pega.locator(SUBMIT_BUTTON).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
-        paso = "Close"
+        paso = CRONO.marcar("Close")
         pega.locator(CLOSE_BUTTON).click()
         page.wait_for_timeout(STEP_PAUSE_MS)
     except SkipRow:
@@ -501,6 +543,7 @@ def main() -> None:
                 try:
                     process_row(page, assignee, jpv, case_type)
                     log.info(f"{GREEN}OK - JPV %s asignado a %s{RESET}", jpv, assignee)
+                    log.info("Tiempos JPV %s: %s", jpv, CRONO.resumen())
                     results.append([row_no, assignee, jpv, "OK", ""])
                 except SkipRow as skip:
                     log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, skip)
@@ -509,6 +552,7 @@ def main() -> None:
                     text = str(exc).strip()
                     msg = text.splitlines()[0] if text else type(exc).__name__
                     log.error(f"{RED}ERROR - JPV %s no se pudo asignar a %s. Motivo: %s{RESET}", jpv, assignee, msg)
+                    log.info("Tiempos JPV %s: %s", jpv, CRONO.resumen())
                     try:
                         page.screenshot(path=f"error_fila_{row_no}.png", full_page=True)
                     except Exception:  # la página pudo quedar en mal estado
