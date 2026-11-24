@@ -80,6 +80,15 @@ OWNERS_ALLOWED = ("FX12", "AutoCV")                 # el reassign solo se hace s
 OWNER_NO_REASIGNAR = "AutoCV Automation"           # si el campo Work dice esto, la fila se saltea aunque diga AutoCV
 BOT_ID = "B089707"                                 # si el asignado actual contiene este ID, la fila se saltea
 CHANGE_CASE_TYPE_OPTION = "role=menuitem[name='Change case type'] >> visible=true"  # opción dentro de Actions
+# Flujo ReviewPymtPaidCorrectly: Actions > ReviewPymtPaidCorrectly > Actions > Cancel this Assignment > Submit, y después el flujo normal
+REVIEW_PYMT_OPTIONS = (
+    "role=menuitem[name=/^ReviewPymtPaidCorrectly/i] >> visible=true",
+    "role=button[name=/^ReviewPymtPaidCorrectly/i] >> visible=true",
+)
+CANCEL_ASSIGNMENT_OPTIONS = (
+    "role=menuitem[name=/^Cancel this Assignment/i] >> visible=true",
+    "role=button[name=/^Cancel this Assignment/i] >> visible=true",
+)
 NEW_CASE_TYPE_LABEL = "Select New Case Type"        # label del dropdown donde se elige el nuevo tipo de caso
 
 XLSX_SHEETS = ("Cases Distribution", "Distribution")  # nombres exactos aceptados, en orden de preferencia. Si el XLSX no tiene ninguno, el script se detiene antes de abrir el navegador
@@ -319,6 +328,29 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
         #    Change case type > Amendment > Submit, y vuelve a abrir Actions.
         paso = "Actions"
         pega.locator(ACTIONS_MENU).click()
+
+        # 2a) ReviewPymtPaidCorrectly: Actions > ReviewPymtPaidCorrectly > Actions > Cancel this Assignment > Submit.
+        #     Después el Actions queda abierto y sigue el flujo normal.
+        if esperar_alguna_visible(pega, list(REVIEW_PYMT_OPTIONS)):
+            sel_review = next(s for s in REVIEW_PYMT_OPTIONS if pega.locator(s).count() > 0)
+            paso = "ReviewPymtPaidCorrectly"
+            pega.locator(sel_review).click()
+            page.wait_for_timeout(STEP_PAUSE_MS)
+            paso = "Actions (antes de Cancel this Assignment)"
+            pega.locator(ACTIONS_MENU).click()
+            paso = "Cancel this Assignment"
+            if not esperar_alguna_visible(pega, list(CANCEL_ASSIGNMENT_OPTIONS)):
+                raise TimeoutError("no apareció Cancel this Assignment en el menú Actions")
+            sel_cancel = next(s for s in CANCEL_ASSIGNMENT_OPTIONS if pega.locator(s).count() > 0)
+            pega.locator(sel_cancel).click()
+            page.wait_for_timeout(STEP_PAUSE_MS)
+            paso = "Submit (Cancel this Assignment)"
+            pega.locator(SUBMIT_BUTTON).click()
+            page.wait_for_timeout(STEP_PAUSE_MS)
+            paso = "Actions (tras Cancel this Assignment)"
+            pega.locator(ACTIONS_MENU).click()
+            page.wait_for_timeout(STEP_PAUSE_MS)
+
         es_trigger = case_type.casefold() == CASE_TYPE_TRIGGER.casefold()
         if es_trigger and menu_option_visible(pega, CHANGE_CASE_TYPE_OPTION):
             paso = "Change case type"
