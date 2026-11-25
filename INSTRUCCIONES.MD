@@ -103,9 +103,10 @@ Copiá el comando completo, pegalo en la terminal y apretá Enter.
 
 ### Paso 5: Iniciar sesión
 
-1. Se abre el navegador con la aplicación. El script hace solo los clicks de SSO.
-2. Completá usuario, contraseña y MFA en el navegador.
-3. No hace falta apretar nada en la terminal: el script arranca solo cuando aparece la búsqueda de PRPC.
+1. Se abren 2 ventanas de Edge, una tras otra. El script hace solo los clicks de SSO.
+2. Completá usuario, contraseña y MFA en cada ventana.
+3. No hace falta apretar nada en la terminal: cada ventana arranca sola cuando aparece la búsqueda de PRPC.
+4. Mientras corre, no muevas ni toques las ventanas de Edge.
 
 ### Paso 6: Esperar
 
