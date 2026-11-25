@@ -73,7 +73,7 @@ Tiene que ser uno de estos archivos:
 
 - `Distribution of Cases (Today).xlsx` (mañana)
 - `Distribution.xlsx` (tarde)
-- `Distribution Failed.xlsx` (failed): solo se procesan las filas con Sub LOB 12. El resto queda omitido.
+- `Distribution Failed.xlsx` (failed): se procesan las filas con Sub LOB 12 o 13. El resto queda omitido.
 
 ### Paso 2: Arrastrarlo a la carpeta del script
 
@@ -97,7 +97,7 @@ Elegí el comando según el nombre del archivo que bajaste:
 |---|---|
 | `Distribution of Cases (Today).xlsx` (mañana) | `python ui_automation.py "Distribution of Cases (Today).xlsx"` |
 | `Distribution.xlsx` (tarde) | `python ui_automation.py "Distribution.xlsx"` |
-| `Distribution Failed.xlsx` (failed) | Solo filas con Sub LOB 12 |
+| `Distribution Failed.xlsx` (failed) | Filas con Sub LOB 12 o 13 |
 
 Copiá el comando completo, pegalo en la terminal y apretá Enter.
 
