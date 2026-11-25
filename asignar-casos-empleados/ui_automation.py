@@ -25,10 +25,12 @@ Genera resultados.csv con el estado de cada fila y una captura
 (error_fila_N.png) por cada fila que falle.
 """
 
+import argparse
 import csv
 import logging
 import os
 import re
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -112,6 +114,7 @@ OWNERS_POR_SUB_LOB = {"13": ("FX13",)}
 CASE_TYPE_TRIGGER = "Miscellaneous"  # si la fila tiene este tipo, antes de reasignar se cambia el tipo de caso
 CASE_TYPES_SOLO_AUTOCV = {"Miscellaneous", "OFAC"}  # estos tipos solo se procesan si el equipo es AUTOCV; si no, se omiten
 EXCEPCIONES_SOLO_AUTOCV = {("iFX", "Miscellaneous")}  # (equipo, tipo) que sí se procesan aunque el equipo no sea AUTOCV
+EQUIPOS_TODOS_LOS_TIPOS = {"FX Retail Inv"}  # estos equipos se reasignan con cualquier tipo de caso (2026-11-25)
 TEAM_AUTOCV = "AUTOCV"
 NEW_CASE_TYPE = "JPM-Work-Shared-WDPC-Exp-AmendBen"  # VALUE de la opción en el dropdown (no el texto visible)
 
@@ -126,6 +129,9 @@ HEADLESS = False        # False: ves la automatización corriendo
 AUTO_SSO_CLICKS = True  # True: el script hace click en "Login with SSO" y en "JPMorgan Chase (Default)"
 LOGIN_TIMEOUT_MS = 120000  # cuánto esperar a que termines usuario, contraseña y MFA (la barra de búsqueda aparece al terminar)
 STEP_PAUSE_MS = 200     # pausa breve entre pasos (antes 300; los clicks ya esperan a que el elemento esté listo)
+INSTANCIAS = 2                 # cuántas ventanas de Edge en paralelo (se puede cambiar con --instancias N)
+ESPERA_ENTRE_INSTANCIAS_MS = 15000  # pausa entre el arranque de cada ventana (evita que dos logins SSO se pisen)
+RESULTADOS_CSV = "resultados.csv"
 PAUSE_BETWEEN_ROWS_MS = 1500  # pausa mínima entre una fila y la siguiente
 POST_SEARCH_PAUSE_MS = 1000   # espera después de buscar el JPV, antes de tocar el caso (antes 2000; si vuelve a tocar el caso anterior, subirla)
 RECOVER_TIMEOUT_MS = 15000  # cuánto esperar la search bar al recuperarse de un error
@@ -227,6 +233,8 @@ def contiene_frase(texto: str, frase: str) -> bool:
 def solo_autocv(team: str, case_type: str) -> bool:
     """True si la fila tiene un tipo que solo se procesa para AUTOCV y su equipo no tiene excepción. Sin distinguir mayúsculas."""
     equipo, tipo = team.casefold(), case_type.casefold()
+    if equipo in {e.casefold() for e in EQUIPOS_TODOS_LOS_TIPOS}:
+        return False
     if tipo not in {t.casefold() for t in CASE_TYPES_SOLO_AUTOCV}:
         return False
     if equipo == TEAM_AUTOCV.casefold():
@@ -466,12 +474,12 @@ def recover(page: Page) -> bool:
         return False
 
 
-def guardar_resultados(results: list) -> None:
+def guardar_resultados(results: list, destino: Path = Path(RESULTADOS_CSV), imprimir: bool = True) -> None:
     """Escribe resultados.csv (sin las omitidas) y muestra la tabla de errores y el resumen.
 
     Se llama también si la corrida se corta a mitad.
     """
-    out = Path("resultados.csv")
+    out = destino
     filas = [r for r in results if r[3] != "OMITIDA"]
     with out.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -481,7 +489,7 @@ def guardar_resultados(results: list) -> None:
     ok = [r for r in filas if r[3] == "OK"]
     errores = [r for r in filas if r[3] == "ERROR"]
     sin_procesar = [r for r in filas if r[3] == "NO PROCESADA"]
-    if errores:
+    if errores and imprimir:
         # El ancho sale del dato más largo, con 2 espacios de separación, para que el JPV no pegue con el assignee
         ancho_jpv = max(len("JPV"), *(len(r[2]) for r in errores)) + 2
         ancho_asig = max(len("Asignado a"), *(len(r[1]) for r in errores)) + 2
@@ -493,13 +501,137 @@ def guardar_resultados(results: list) -> None:
              len(ok), len(errores), len(sin_procesar), out.resolve())
 
 
-def main() -> None:
-    if len(sys.argv) != 2:
-        sys.exit("Uso: python ui_automation.py archivo.xlsx")
+def procesar_filas(rows: list, failed: bool, results: list) -> None:
+    """Abre un navegador, hace el login y procesa las filas. Va agregando a results."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS, args=["--start-maximized"])
+        page = browser.new_page(no_viewport=True)
+        page.goto(APP_URL)
 
-    xlsx_path = Path(sys.argv[1])
+        if AUTO_SSO_CLICKS:
+            login_sso(page)
+
+        log.info("Completá usuario, contraseña y MFA en el navegador. El script arranca solo cuando aparezca la búsqueda.")
+        page.locator(SEARCH_INPUT).wait_for(state="visible", timeout=LOGIN_TIMEOUT_MS)
+
+        detenido = False
+        for row_no, assignee, jpv, team, case_type in rows:
+            if detenido:
+                results.append([row_no, assignee, jpv, "NO PROCESADA", "corrida detenida por un error anterior"])
+                continue
+            if failed:
+                # En failed, "team" es el Sub LOB (columna E). No hay equipo ni tipo de caso.
+                if not any(contiene_valor(team, v) for v in FAILED_SUB_LOBS):
+                    motivo = f"sub LOB '{team}' fuera de {' o '.join(FAILED_SUB_LOBS)}"
+                    log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
+                    results.append([row_no, assignee, jpv, "OMITIDA", motivo])
+                    continue
+            else:
+                if team not in TEAMS_ALLOWED:
+                    motivo = f"equipo '{team}' fuera de TEAMS_ALLOWED"
+                    log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
+                    results.append([row_no, assignee, jpv, "OMITIDA", motivo])
+                    continue
+                if solo_autocv(team, case_type):
+                    motivo = f"tipo '{case_type}' solo se procesa para el equipo {TEAM_AUTOCV}"
+                    log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
+                    results.append([row_no, assignee, jpv, "OMITIDA", motivo])
+                    continue
+            if failed:
+                owners = OWNERS_POR_SUB_LOB.get(team, OWNERS_ALLOWED)  # en failed, "team" es el Sub LOB
+            else:
+                owners = OWNERS_POR_EQUIPO.get(team, OWNERS_ALLOWED)
+            try:
+                process_row(page, assignee, jpv, case_type, owners)
+                log.info(f"{GREEN}OK - JPV %s asignado a %s{RESET}", jpv, assignee)
+                log.info("Tiempos JPV %s: %s", jpv, CRONO.resumen())
+                results.append([row_no, assignee, jpv, "OK", ""])
+            except SkipRow as skip:
+                log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, skip)
+                results.append([row_no, assignee, jpv, "OMITIDA", str(skip)])
+            except Exception as exc:  # noqa: BLE001
+                text = str(exc).strip()
+                msg = text.splitlines()[0] if text else type(exc).__name__
+                log.error(f"{RED}ERROR - JPV %s no se pudo asignar a %s. Motivo: %s{RESET}", jpv, assignee, msg)
+                log.info("Tiempos JPV %s: %s", jpv, CRONO.resumen())
+                try:
+                    page.screenshot(path=f"error_fila_{row_no}.png", full_page=True)
+                except Exception:  # la página pudo quedar en mal estado
+                    pass
+                results.append([row_no, assignee, jpv, "ERROR", msg])
+                if recover(page):
+                    log.info("Volvió a la búsqueda; sigue con la siguiente fila.")
+                else:
+                    log.error(f"{RED}No se pudo volver a la búsqueda. Se detiene la corrida.{RESET}")
+                    detenido = True
+            if not detenido:
+                page.wait_for_timeout(PAUSE_BETWEEN_ROWS_MS)
+        browser.close()
+
+
+def tramo_de_filas(rows: list, parte: int, instancias: int) -> list:
+    """Parte contigua número `parte` (1 a instancias) de las filas. Todas las instancias calculan lo mismo."""
+    n = len(rows)
+    return rows[(parte - 1) * n // instancias: parte * n // instancias]
+
+
+def unir_resultados(instancias: int) -> None:
+    """Junta los resultados_parteK.csv en resultados.csv y muestra la tabla de errores y el resumen."""
+    filas, faltan = [], []
+    for k in range(1, instancias + 1):
+        parte = Path(f"resultados_parte{k}.csv")
+        if not parte.exists():
+            faltan.append(k)
+            continue
+        with parte.open(newline="", encoding="utf-8") as f:
+            lector = csv.reader(f)
+            next(lector, None)  # encabezado
+            filas.extend(fila for fila in lector if fila)
+        parte.unlink()
+    if faltan:
+        log.error(f"{RED}Faltan los resultados de la(s) instancia(s): %s{RESET}", ", ".join(map(str, faltan)))
+    guardar_resultados(filas, Path(RESULTADOS_CSV), imprimir=True)
+
+
+def lanzar_instancias(xlsx_path: Path, rows: list, instancias: int) -> None:
+    """Lanza una instancia del script por cada tramo de filas, con una pausa entre arranques, y después une los resultados."""
+    script = Path(__file__).resolve()
+    procesos = []
+    try:
+        for k in range(1, instancias + 1):
+            if k > 1:
+                time.sleep(ESPERA_ENTRE_INSTANCIAS_MS / 1000)
+            tramo = tramo_de_filas(rows, k, instancias)
+            if tramo:
+                log.info("Lanzando instancia %d de %d: %d filas (de la fila %s a la %s)",
+                         k, instancias, len(tramo), tramo[0][0], tramo[-1][0])
+            procesos.append(subprocess.Popen(
+                [sys.executable, str(script), str(xlsx_path), "--parte", str(k), "--instancias", str(instancias)]))
+        for proceso in procesos:
+            proceso.wait()
+    except KeyboardInterrupt:
+        log.error(f"{RED}Interrumpido. Se cierran las instancias.{RESET}")
+        for proceso in procesos:
+            proceso.terminate()
+        for proceso in procesos:
+            proceso.wait()
+    finally:
+        unir_resultados(instancias)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Reasigna casos en PRPC desde un XLSX.")
+    parser.add_argument("xlsx", help="archivo .xlsx de entrada")
+    parser.add_argument("--instancias", type=int, default=INSTANCIAS,
+                        help=f"ventanas de Edge en paralelo (por defecto {INSTANCIAS})")
+    parser.add_argument("--parte", type=int, help="uso interno: número de la instancia hija")
+    args = parser.parse_args()
+
+    xlsx_path = Path(args.xlsx)
     if xlsx_path.suffix.lower() != ".xlsx":
         sys.exit("El archivo de entrada tiene que ser .xlsx")
+    if args.instancias < 1:
+        sys.exit("--instancias tiene que ser 1 o más")
 
     failed = FAILED_FILE_MARK in xlsx_path.name.casefold()
     rows = read_rows(xlsx_path, failed)
@@ -509,74 +641,26 @@ def main() -> None:
     if not rows:
         return
 
-    results = []
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(channel=BROWSER_CHANNEL, headless=HEADLESS, args=["--start-maximized"])
-            page = browser.new_page(no_viewport=True)
-            page.goto(APP_URL)
+    if args.parte:  # instancia hija: procesa su tramo y deja su propio CSV
+        for handler in logging.getLogger().handlers:
+            handler.setFormatter(logging.Formatter(f"%(asctime)s  %(levelname)-7s [parte {args.parte}] %(message)s"))
+        tramo = tramo_de_filas(rows, args.parte, args.instancias)
+        results = []
+        try:
+            procesar_filas(tramo, failed, results)
+        finally:
+            guardar_resultados(results, Path(f"resultados_parte{args.parte}.csv"), imprimir=False)
+        return
 
-            if AUTO_SSO_CLICKS:
-                login_sso(page)
+    if args.instancias == 1:
+        results = []
+        try:
+            procesar_filas(rows, failed, results)
+        finally:
+            guardar_resultados(results)
+        return
 
-            print("Completá usuario, contraseña y MFA en el navegador. El script arranca solo cuando aparezca la búsqueda.")
-            page.locator(SEARCH_INPUT).wait_for(state="visible", timeout=LOGIN_TIMEOUT_MS)
-
-            detenido = False
-            for row_no, assignee, jpv, team, case_type in rows:
-                if detenido:
-                    results.append([row_no, assignee, jpv, "NO PROCESADA", "corrida detenida por un error anterior"])
-                    continue
-                if failed:
-                    # En failed, "team" es el Sub LOB (columna E). No hay equipo ni tipo de caso.
-                    if not any(contiene_valor(team, v) for v in FAILED_SUB_LOBS):
-                        motivo = f"sub LOB '{team}' fuera de {' o '.join(FAILED_SUB_LOBS)}"
-                        log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
-                        results.append([row_no, assignee, jpv, "OMITIDA", motivo])
-                        continue
-                else:
-                    if team not in TEAMS_ALLOWED:
-                        motivo = f"equipo '{team}' fuera de TEAMS_ALLOWED"
-                        log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
-                        results.append([row_no, assignee, jpv, "OMITIDA", motivo])
-                        continue
-                    if solo_autocv(team, case_type):
-                        motivo = f"tipo '{case_type}' solo se procesa para el equipo {TEAM_AUTOCV}"
-                        log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
-                        results.append([row_no, assignee, jpv, "OMITIDA", motivo])
-                        continue
-                if failed:
-                    owners = OWNERS_POR_SUB_LOB.get(team, OWNERS_ALLOWED)  # en failed, "team" es el Sub LOB
-                else:
-                    owners = OWNERS_POR_EQUIPO.get(team, OWNERS_ALLOWED)
-                try:
-                    process_row(page, assignee, jpv, case_type, owners)
-                    log.info(f"{GREEN}OK - JPV %s asignado a %s{RESET}", jpv, assignee)
-                    log.info("Tiempos JPV %s: %s", jpv, CRONO.resumen())
-                    results.append([row_no, assignee, jpv, "OK", ""])
-                except SkipRow as skip:
-                    log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, skip)
-                    results.append([row_no, assignee, jpv, "OMITIDA", str(skip)])
-                except Exception as exc:  # noqa: BLE001
-                    text = str(exc).strip()
-                    msg = text.splitlines()[0] if text else type(exc).__name__
-                    log.error(f"{RED}ERROR - JPV %s no se pudo asignar a %s. Motivo: %s{RESET}", jpv, assignee, msg)
-                    log.info("Tiempos JPV %s: %s", jpv, CRONO.resumen())
-                    try:
-                        page.screenshot(path=f"error_fila_{row_no}.png", full_page=True)
-                    except Exception:  # la página pudo quedar en mal estado
-                        pass
-                    results.append([row_no, assignee, jpv, "ERROR", msg])
-                    if recover(page):
-                        log.info("Volvió a la búsqueda; sigue con la siguiente fila.")
-                    else:
-                        log.error(f"{RED}No se pudo volver a la búsqueda. Se detiene la corrida.{RESET}")
-                        detenido = True
-                if not detenido:
-                    page.wait_for_timeout(PAUSE_BETWEEN_ROWS_MS)
-            browser.close()
-    finally:
-        guardar_resultados(results)
+    lanzar_instancias(xlsx_path, rows, args.instancias)
 
 
 if __name__ == "__main__":
