@@ -22,6 +22,8 @@ Automatizar tareas repetitivas del flujo diario del equipo, con UI web (Playwrig
 
 ## 3. asignar-casos-empleados
 
+- Ejecución en paralelo (2026-11-25): `INSTANCIAS = 2` (`--instancias N` para cambiar). El script reparte las filas en tramos contiguos y lanza una instancia por tramo, cada una con su ventana de Edge, con `ESPERA_ENTRE_INSTANCIAS_MS` entre arranques. Cada instancia escribe `resultados_parteK.csv` y al final se unen en `resultados.csv`. Pendiente: confirmar en la VDI que PRPC acepta dos sesiones del mismo operador.
+
 ### Qué hace
 Por cada fila del XLSX, busca el JPV en la search bar y reasigna el caso al assignee indicado.
 
@@ -29,7 +31,7 @@ Por cada fila del XLSX, busca el JPV en la search bar y reasigna el caso al assi
 - Columna A: assignee (persona a la que se asigna).
 - Columna B: JPV (identificador del caso, lo que se busca).
 - Columna C: equipo. Solo se procesan los equipos de `TEAMS_ALLOWED`; el resto queda `OMITIDA`.
-- Columna D: tipo de caso. Los tipos `Miscellaneous` y `OFAC` solo se procesan si el equipo es AUTOCV (regla del 2026-11-19); para otros equipos la fila queda `OMITIDA` sin tocar el caso. Excepción desde 2026-11-20: `iFX` + `Miscellaneous` se procesa con Change case type a Amendment. Sin distinguir mayúsculas.
+- Columna D: tipo de caso. Los tipos `Miscellaneous` y `OFAC` solo se procesan si el equipo es AUTOCV (regla del 2026-11-19); para otros equipos la fila queda `OMITIDA` sin tocar el caso. Excepciones: desde 2026-11-20, `iFX` + `Miscellaneous` (Change case type a Amendment y después Reassign). Desde 2026-11-25, `FX Retail Inv` se reasigna con cualquier tipo: `Miscellaneous` con Change case type a Amendment, y `OFAC` directo a Reassign (`EQUIPOS_TODOS_LOS_TIPOS`). Sin distinguir mayúsculas.
 - Las demás columnas se ignoran.
 - Hoja: `Cases Distribution` o `Distribution` (`XLSX_SHEETS`, nombres exactos, en ese orden). Desde 2026-11-20 se acepta también `Distribution`, porque llegó un XLSX con esa hoja. Si no está ninguna, el script se detiene antes de abrir el navegador (regla del 2026-11-19). Con encabezado (`XLSX_HAS_HEADER`).
 
