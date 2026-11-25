@@ -36,15 +36,16 @@ Por cada fila del XLSX, busca el JPV en la search bar y reasigna el caso al assi
 ### Archivo failed (2026-11-20)
 - Se reconoce porque el nombre del archivo contiene `failed` (`FAILED_FILE_MARK`).
 - Columna A: Investigator (assignee). Columna B: JPV. Columna E: Sub LOB. No tiene equipo ni tipo de caso.
-- La columna E solo tiene dos valores: `12` y `13`. Solo se procesan las filas con `12` (`FAILED_SUB_LOB`), confirmado por Alan el 2026-11-20. "Por ahora": si cambia, se cambia esa constante.
+- La columna E solo tiene dos valores: `12` y `13`. Desde 2026-11-25 se procesan las filas con `12` o `13` (`FAILED_SUB_LOBS`). Antes, solo `12` (2026-11-20).
 - Hoja: `Distribution` (confirmado por Alan el 2026-11-20).
-- Las demás reglas (Work, owner, Reopen, Reassign) son las mismas que para el archivo normal. Pendiente de confirmar con Alan si aplican igual.
+- Las demás reglas (Work, Reopen, Reassign) son las mismas que para el archivo normal. Owner: `FX12` o `AutoCV` para Sub LOB 12; `FX13` para Sub LOB 13 (`OWNERS_POR_SUB_LOB`, 2026-11-25, pedido por Alan).
 
 ### Flujo por fila
 1. Escribe el JPV en la search bar y confirma con Enter (`SEARCH_WITH_ENTER`). Espera `POST_SEARCH_PAUSE_MS`.
 2. Abre la pestaña **Work** y verifica el caso. Si la fila no cumple, se saltea sin tocar el caso:
    - Si el asignado actual contiene el ID del bot (`BOT_ID`), se saltea.
    - Si el campo Work no contiene ninguno de los owners permitidos (`OWNERS_ALLOWED`), se saltea.
+   - Desde 2026-11-25 los equipos incluyen `FX Retail Inv` sin punto final (`TEAMS_ALLOWED`). Para ese equipo el campo Work tiene que decir `FX13` (`OWNERS_POR_EQUIPO`). Los demás equipos siguen con `FX12` o `AutoCV`. Pedido por Alan.
    - Si el campo Work dice `AutoCV Automation`, se saltea aunque también diga `AutoCV` (`OWNER_NO_REASIGNAR`, regla del 2026-11-20). Se reasigna solo si dice `AutoCV`.
    - Si aparece el botón de reabrir (`REOPEN_BUTTON`), se saltea.
 2a. Si Actions tiene **ReviewPymtPaidCorrectly**, el flujo es: Actions > ReviewPymtPaidCorrectly > Actions > **Cancel this Assignment** > Submit > Actions, y sigue el flujo normal. Pedido por Alan el 2026-11-24.
@@ -194,7 +195,7 @@ Al revisar un caso concreto se vio que casi todas las respuestas del equipo lleg
 
 ### asignar-casos-empleados
 - Problema con el botón **Actions** en el segundo caso: su estructura no coincide con el selector. Quedó pendiente de revisar el HTML o el codegen de ese botón.
-- Archivo de *failed* implementado (2026-11-20): hoja `Distribution`, Sub LOB `12` (los valores son solo `12` y `13`). Falta probarlo en la VDI.
+- Archivo de *failed* implementado (2026-11-20): hoja `Distribution`, Sub LOB `12` (2026-11-20) y `13` desde 2026-11-25. Falta probarlo en la VDI.
 
 ### reasignar-casos-pega-lob
 - Cambiar la validación del owner a igualdad exacta, con el locator del campo **Case owner** en la pestaña Work.
