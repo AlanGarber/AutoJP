@@ -97,13 +97,18 @@ XLSX_HAS_HEADER = True     # True: la primera fila es encabezado y se saltea
 COL_ASSIGNEE = "A"         # columna con el assignee
 COL_JPV = "B"              # columna con el identificador JPV
 COL_TEAM = "C"             # columna con el equipo
-TEAMS_ALLOWED = {"AUTOCV", "FX ChaseTr", "iFX"}  # solo se procesan las filas de estos equipos; el resto se omite
+TEAMS_ALLOWED = {"AUTOCV", "FX ChaseTr", "iFX", "FX Retail Inv"}  # solo se procesan las filas de estos equipos; el resto se omite
+# Owners exigidos por equipo. Si el equipo no está acá, se usa OWNERS_ALLOWED.
+# FX Retail Inv (2026-11-25): el campo Work tiene que decir FX13.
+OWNERS_POR_EQUIPO = {"FX Retail Inv": ("FX13",)}
 COL_CASE_TYPE = "D"        # columna con el tipo de caso
 # Archivo failed: si el nombre del archivo contiene esta palabra, el script lo lee como failed.
 # Columnas: A = Investigator (assignee), B = JPV, E = Sub LOB. No tiene equipo ni tipo de caso.
 FAILED_FILE_MARK = "failed"
 COL_SUB_LOB = "E"          # solo en failed: columna con el Sub LOB
-FAILED_SUB_LOB = "12"      # solo en failed: por ahora se procesan solo las filas cuyo Sub LOB dice esto (palabra completa)
+FAILED_SUB_LOBS = ("12", "13")  # solo en failed: se procesan las filas cuyo Sub LOB dice alguno de estos (palabra completa). Antes solo "12"
+# Owners exigidos en failed por Sub LOB (2026-11-25): el Sub LOB 13 tiene que tener FX13 en el campo Work. El resto usa OWNERS_ALLOWED.
+OWNERS_POR_SUB_LOB = {"13": ("FX13",)}
 CASE_TYPE_TRIGGER = "Miscellaneous"  # si la fila tiene este tipo, antes de reasignar se cambia el tipo de caso
 CASE_TYPES_SOLO_AUTOCV = {"Miscellaneous", "OFAC"}  # estos tipos solo se procesan si el equipo es AUTOCV; si no, se omiten
 EXCEPCIONES_SOLO_AUTOCV = {("iFX", "Miscellaneous")}  # (equipo, tipo) que sí se procesan aunque el equipo no sea AUTOCV
@@ -321,7 +326,7 @@ class Cronometro:
 CRONO = Cronometro()
 
 
-def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
+def process_row(page: Page, assignee: str, jpv: str, case_type: str, owners: tuple = OWNERS_ALLOWED) -> None:
     CRONO.reiniciar()
     paso = CRONO.marcar("buscar JPV")
     try:
@@ -353,8 +358,8 @@ def process_row(page: Page, assignee: str, jpv: str, case_type: str) -> None:
             raise SkipRow(f"asignado al bot {BOT_ID}")
         if contiene_frase(owner, OWNER_NO_REASIGNAR):
             raise SkipRow(f"no se reasigna. Campo work dice {OWNER_NO_REASIGNAR}")
-        if not any(contiene_valor(owner, o) for o in OWNERS_ALLOWED):
-            raise SkipRow(f"no se reasigna: el campo Work no dice {' ni '.join(OWNERS_ALLOWED)}")
+        if not any(contiene_valor(owner, o) for o in owners):
+            raise SkipRow(f"no se reasigna: el campo Work no dice {' ni '.join(owners)}")
         if menu_option_visible(pega, REOPEN_BUTTON):
             raise SkipRow("tiene el botón Reopen: no se reasigna")
 
@@ -499,7 +504,7 @@ def main() -> None:
     failed = FAILED_FILE_MARK in xlsx_path.name.casefold()
     rows = read_rows(xlsx_path, failed)
     if failed:
-        log.info("Archivo failed: solo se procesan las filas con Sub LOB %s", FAILED_SUB_LOB)
+        log.info("Archivo failed: solo se procesan las filas con Sub LOB %s", " o ".join(FAILED_SUB_LOBS))
     log.info("%d filas para procesar", len(rows))
     if not rows:
         return
@@ -524,8 +529,8 @@ def main() -> None:
                     continue
                 if failed:
                     # En failed, "team" es el Sub LOB (columna E). No hay equipo ni tipo de caso.
-                    if not contiene_valor(team, FAILED_SUB_LOB):
-                        motivo = f"sub LOB '{team}' fuera de {FAILED_SUB_LOB}"
+                    if not any(contiene_valor(team, v) for v in FAILED_SUB_LOBS):
+                        motivo = f"sub LOB '{team}' fuera de {' o '.join(FAILED_SUB_LOBS)}"
                         log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
                         results.append([row_no, assignee, jpv, "OMITIDA", motivo])
                         continue
@@ -540,8 +545,12 @@ def main() -> None:
                         log.warning(f"{YELLOW}JPV %s: %s. Se saltea la fila.{RESET}", jpv, motivo)
                         results.append([row_no, assignee, jpv, "OMITIDA", motivo])
                         continue
+                if failed:
+                    owners = OWNERS_POR_SUB_LOB.get(team, OWNERS_ALLOWED)  # en failed, "team" es el Sub LOB
+                else:
+                    owners = OWNERS_POR_EQUIPO.get(team, OWNERS_ALLOWED)
                 try:
-                    process_row(page, assignee, jpv, case_type)
+                    process_row(page, assignee, jpv, case_type, owners)
                     log.info(f"{GREEN}OK - JPV %s asignado a %s{RESET}", jpv, assignee)
                     log.info("Tiempos JPV %s: %s", jpv, CRONO.resumen())
                     results.append([row_no, assignee, jpv, "OK", ""])
