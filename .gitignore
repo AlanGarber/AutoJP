@@ -15,3 +15,4 @@ config_local.py
 # Lista local de correos del equipo (no se sube)
 mails-sin-responder/equipo_local.ps1
 mails-sin-responder/casillas_local.ps1
+mails-sin-responder/asignacion_local.ps1

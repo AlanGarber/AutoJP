@@ -58,6 +58,14 @@ Al terminar se abre el reporte en el navegador y quedan dos archivos en la carpe
 
 Columnas del detalle: casilla, hora de recepción, remitente, email, asunto, carpeta, si la casilla estaba en Para/CC, horas sin respuesta y cuántos mails del hilo quedaron sin responder.
 
+## Asignado
+
+Si el asunto tiene un JPV (`JPV` + dígitos + `-` + dígitos), el script busca el assignee en la base `$ArchivoCasos` (columna A = JPV, columna Q = assignee). La ruta real va en `asignacion_local.ps1`, fuera del repo; la plantilla es `asignacion_local.example.ps1`.
+
+- Si el assignee es una cola (`$AssigneesDeCola`: FX12, AutoCV, AutoCV Automation), la columna muestra el responsable de la casilla en ese día y horario, según `$ArchivoHorarios` (filas 4 a 7, columnas D a H = lunes a viernes). Si el horario no está cargado, muestra la cola sin responsable.
+- Si el JPV no está en la base, la columna dice `JPV no encontrado`.
+- Si el asunto no tiene JPV, la columna dice `Sin JPV en el asunto`. Si no hay base configurada, queda vacía.
+
 ## Si algo falla
 
 - **"No se puede cargar el archivo... la ejecución de scripts está deshabilitada"**: la VDI bloquea scripts `.ps1`. Abrí PowerShell en esta carpeta y corré:

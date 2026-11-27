@@ -71,6 +71,23 @@ $CarpetaSalida = $PSScriptRoot
 # Abrir el reporte HTML en el navegador al terminar.
 $AbrirReporteAlTerminar = $true
 
+# Base de JPV → assignee: CSV con el JPV en la columna A y el assignee en la columna Q.
+# La ruta real va en asignacion_local.ps1 (fuera del repo). Vacío = sin búsqueda.
+$ArchivoCasos = ''
+# Horarios de responsables: Excel con filas 4 a 7 y columnas D a H (lunes a viernes).
+# La ruta real va en asignacion_local.ps1. Vacío = sin horarios.
+$ArchivoHorarios = ''
+$GruposHorario = @(
+    @{ Casilla = 'NAFX';   Desde = '13:00'; Hasta = '16:00'; Fila = 4 },
+    @{ Casilla = 'NAFX';   Desde = '16:00'; Hasta = '18:30'; Fila = 5 },
+    @{ Casilla = 'AutoCV'; Desde = '13:00'; Hasta = '16:00'; Fila = 6 },
+    @{ Casilla = 'AutoCV'; Desde = '16:00'; Hasta = '18:30'; Fila = 7 }
+)
+$ColumnaJPV = 1
+$ColumnaAssignee = 17
+# Valores que son colas y no personas. Si el assignee es uno de estos, va al horario de la casilla.
+$AssigneesDeCola = @('FX12', 'AutoCV', 'AutoCV Automation')
+
 # =====================================================================
 
 # Lista local del equipo (equipo_local.ps1, fuera del repo). Si existe, reemplaza $Equipo.
@@ -79,6 +96,8 @@ if (Test-Path $RutaEquipoLocal) { . $RutaEquipoLocal }
 # Lista de casillas (casillas_local.ps1, fuera del repo). Si existe, reemplaza $Casillas.
 $RutaCasillasLocal = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'casillas_local.ps1' } else { Join-Path (Get-Location) 'casillas_local.ps1' }
 if (Test-Path $RutaCasillasLocal) { . $RutaCasillasLocal }
+$RutaAsignacionLocal = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'asignacion_local.ps1' } else { Join-Path (Get-Location) 'asignacion_local.ps1' }
+if (Test-Path $RutaAsignacionLocal) { . $RutaAsignacionLocal }
 
 $ErrorActionPreference = 'Stop'
 
@@ -211,6 +230,39 @@ function Get-ConversationKey($mail) {
 }
 
 
+function Get-ClaveJPVAsunto($asunto) {
+    if ([string]$asunto -match '(?i)JPV\d+-\d+') { return $matches[0].ToUpperInvariant() }
+    return $null
+}
+
+
+function Get-MapaJPV($ruta, $colJPV, $colAssignee) {
+    # Lee el CSV con TextFieldParser, que respeta comillas y el separador (coma o punto y coma).
+    $mapa = @{}
+    $primeraLinea = [string](Get-Content -Path $ruta -TotalCount 1)
+    $delim = if ($primeraLinea.Split(';').Count -gt $primeraLinea.Split(',').Count) { ';' } else { ',' }
+    Add-Type -AssemblyName Microsoft.VisualBasic
+    $parser = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($ruta)
+    try {
+        $parser.TextFieldType = 'Delimited'
+        $parser.SetDelimiters($delim)
+        $parser.HasFieldsEnclosedInQuotes = $true
+        [void]$parser.ReadFields()
+        while (-not $parser.EndOfData) {
+            $campos = $parser.ReadFields()
+            if ($campos.Count -lt $colAssignee) { continue }
+            $jpv = ([string]$campos[$colJPV - 1]).Trim().ToUpperInvariant()
+            $assignee = ([string]$campos[$colAssignee - 1]).Trim()
+            if (-not $jpv -or -not $assignee) { continue }
+            if (-not $mapa.ContainsKey($jpv)) { $mapa[$jpv] = $assignee }
+        }
+    } finally {
+        $parser.Close()
+    }
+    return $mapa
+}
+
+
 function Convert-Received($mail, $folderName, $owner) {
     $lastVerbTime = $null
     $raw = Get-Prop $mail $PropUltimaAccionHora
@@ -228,6 +280,7 @@ function Convert-Received($mail, $folderName, $owner) {
         MessageClass     = [string]$mail.MessageClass
         UltimaAccion     = Get-Prop $mail $PropUltimaAccion
         UltimaAccionHora = $lastVerbTime
+        JPV              = Get-ClaveJPVAsunto $mail.Subject
     }
 }
 
@@ -341,6 +394,70 @@ function Find-Unanswered($received, $sent, $team, $dayEnd, $mailboxName) {
 }
 
 
+function Get-GrillaHorarios($ruta) {
+    # Lee las celdas de horario con Excel en solo lectura, sin modificar el archivo.
+    $grilla = @{}
+    $filas = @($GruposHorario | ForEach-Object { $_.Fila }) | Sort-Object -Unique
+    $excel = New-Object -ComObject Excel.Application
+    try {
+        $excel.Visible = $false
+        $excel.DisplayAlerts = $false
+        $libro = $excel.Workbooks.Open($ruta, 0, $true)
+        try {
+            $hoja = $libro.Worksheets.Item(1)
+            foreach ($fila in $filas) {
+                foreach ($columna in @('D', 'E', 'F', 'G', 'H')) {
+                    $grilla["$columna$fila"] = ([string]$hoja.Range("$columna$fila").Text).Trim()
+                }
+            }
+        } finally {
+            $libro.Close($false)
+        }
+    } finally {
+        $excel.Quit()
+        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel) | Out-Null
+    }
+    return $grilla
+}
+
+
+function Get-ResponsableHorario($casilla, $fecha) {
+    # Lunes = columna D ... viernes = columna H. Horario local, desde inclusive y hasta exclusive.
+    if ($GrillaHorarios.Count -eq 0) { return '' }
+    $columna = switch ($fecha.DayOfWeek) {
+        'Monday'    { 'D' }
+        'Tuesday'   { 'E' }
+        'Wednesday' { 'F' }
+        'Thursday'  { 'G' }
+        'Friday'    { 'H' }
+        default     { $null }
+    }
+    if (-not $columna) { return 'Fuera de horario' }
+    $hora = $fecha.TimeOfDay
+    $grupo = $GruposHorario | Where-Object {
+        $casilla -like "*$($_.Casilla)*" -and $hora -ge [timespan]$_.Desde -and $hora -lt [timespan]$_.Hasta
+    } | Select-Object -First 1
+    if (-not $grupo) { return 'Fuera de horario' }
+    $nombre = $GrillaHorarios["$columna$($grupo.Fila)"]
+    if ($nombre) { return $nombre }
+    return 'Sin responsable en el horario'
+}
+
+
+function Get-Asignado($r, $casilla) {
+    # Sin JPV en el asunto: no se busca. Con JPV: base de assignees. Si el assignee es una cola, va al horario.
+    if (-not $r.JPV) { return 'Sin JPV en el asunto' }
+    if ($MapaJPV.Count -eq 0) { return '' }
+    if (-not $MapaJPV.ContainsKey($r.JPV)) { return 'JPV no encontrado' }
+    $assignee = $MapaJPV[$r.JPV]
+    if ($AssigneesDeCola -contains $assignee) {
+        $quien = Get-ResponsableHorario $casilla $r.Recibido
+        return "$quien (cola $assignee)"
+    }
+    return $assignee
+}
+
+
 function New-ReportRow($r, $countInThread, $reference, $mailboxName) {
     [pscustomobject]@{
         Casilla           = $mailboxName
@@ -348,6 +465,7 @@ function New-ReportRow($r, $countInThread, $reference, $mailboxName) {
         De                = $r.De
         Email             = $r.Email
         Asunto            = $r.Asunto
+        Asignado          = Get-Asignado $r $mailboxName
         Carpeta           = $r.Carpeta
         EnCampo           = $r.EnCampo
         HorasSinRespuesta = [math]::Round(($reference - $r.Recibido).TotalHours, 1)
@@ -427,10 +545,16 @@ function New-DetalleHtml($rows, $stats) {
         $botonesCarpeta += "<button data-carpeta-btn=`"$i`">$(HtmlText $carpetas[$i])</button>"
     }
 
+    $botonesHoras = '<button data-horas-btn="todas" class="activo">Todas</button>' +
+        '<button data-horas-btn="baja" class="btn-baja">Menos de 1 h</button>' +
+        '<button data-horas-btn="media" class="btn-media">1 a 4 h</button>' +
+        '<button data-horas-btn="alta" class="btn-alta">4 h o más</button>'
+
     $filtros = '<div class="filtros">' +
         '<div class="grupo"><span class="etiqueta">Campo</span>' + $botonesCampo + '</div>' +
         '<div class="grupo"><span class="etiqueta">Casilla</span>' + $botonesCasilla + '</div>' +
         '<div class="grupo"><span class="etiqueta">Carpeta</span>' + $botonesCarpeta + '</div>' +
+        '<div class="grupo"><span class="etiqueta">Horas sin respuesta</span>' + $botonesHoras + '</div>' +
         '</div>'
 
     $filas = New-Object System.Text.StringBuilder
@@ -438,35 +562,35 @@ function New-DetalleHtml($rows, $stats) {
         $idx = [array]::IndexOf($casillas, [string]$r.Casilla)
         $idxCarpeta = [array]::IndexOf($carpetas, [string]$r.Carpeta)
         $campo = Get-CampoClave $r.EnCampo
+        $horasClave = (Get-ClaseHoras $r.HorasSinRespuesta) -replace '^horas-', ''
         $celdas = @(
             "<td>$(HtmlText $r.Casilla)</td>",
             "<td class=`"nowrap`">$(HtmlText $r.Recibido)</td>",
             "<td>$(HtmlText $r.De)</td>",
             "<td class=`"email`">$(HtmlText $r.Email)</td>",
             "<td class=`"asunto`">$(HtmlText $r.Asunto)</td>",
+            "<td>$(HtmlText $r.Asignado)</td>",
             "<td>$(HtmlText $r.Carpeta)</td>",
             "<td><span class=`"badge badge-$campo`">$(HtmlText $r.EnCampo)</span></td>",
             "<td class=`"num-col`"><span class=`"horas $(Get-ClaseHoras $r.HorasSinRespuesta)`">$(HtmlText $r.HorasSinRespuesta) h</span></td>",
             "<td class=`"num-col`">$(HtmlText $r.MailsSinResponder)</td>"
         )
         [void]$filas.Append(
-            "<tr data-campo=`"$campo`" data-casilla=`"$idx`" data-carpeta=`"$idxCarpeta`">" + ($celdas -join '') + "</tr>")
+            "<tr data-campo=`"$campo`" data-casilla=`"$idx`" data-carpeta=`"$idxCarpeta`" data-horas=`"$horasClave`">" + ($celdas -join '') + "</tr>")
     }
 
-    $thead = '<tr><th>Casilla</th><th>Recibido</th><th>De</th><th>Email</th><th>Asunto</th><th>Carpeta</th><th>En campo</th><th>Horas sin respuesta</th><th>Mails del hilo</th></tr>'
-
-    $leyenda = '<p class="leyenda">Horas sin respuesta: <span class="horas horas-baja">menos de 1 h</span> ' +
-        '<span class="horas horas-media">1 a 4 h</span> <span class="horas horas-alta">4 h o más</span></p>'
+    $thead = '<tr><th>Casilla</th><th>Recibido</th><th>De</th><th>Email</th><th>Asunto</th><th>Asignado</th><th>Carpeta</th><th>En campo</th><th>Horas sin respuesta</th><th>Mails del hilo</th></tr>'
 
     $jsFiltros = @'
 <script>
-  var estado = { campo: 'todos', casilla: 'todas', carpeta: 'todas' };
+  var estado = { campo: 'todos', casilla: 'todas', carpeta: 'todas', horas: 'todas' };
   function aplicarFiltros() {
     var visibles = 0;
     document.querySelectorAll('#detalle tbody tr').forEach(function (tr) {
       var ok = (estado.campo === 'todos' || tr.dataset.campo === estado.campo) &&
                (estado.casilla === 'todas' || tr.dataset.casilla === estado.casilla) &&
-               (estado.carpeta === 'todas' || tr.dataset.carpeta === estado.carpeta);
+               (estado.carpeta === 'todas' || tr.dataset.carpeta === estado.carpeta) &&
+               (estado.horas === 'todas' || tr.dataset.horas === estado.horas);
       tr.style.display = ok ? '' : 'none';
       if (ok) {
         visibles++;
@@ -482,6 +606,9 @@ function New-DetalleHtml($rows, $stats) {
     document.querySelectorAll('[data-carpeta-btn]').forEach(function (b) {
       b.classList.toggle('activo', b.dataset.carpetaBtn === estado.carpeta);
     });
+    document.querySelectorAll('[data-horas-btn]').forEach(function (b) {
+      b.classList.toggle('activo', b.dataset.horasBtn === estado.horas);
+    });
     document.getElementById('contador').textContent = visibles + (visibles === 1 ? ' mail visible' : ' mails visibles');
   }
   document.querySelectorAll('[data-campo-btn]').forEach(function (b) {
@@ -493,13 +620,15 @@ function New-DetalleHtml($rows, $stats) {
   document.querySelectorAll('[data-carpeta-btn]').forEach(function (b) {
     b.addEventListener('click', function () { estado.carpeta = b.dataset.carpetaBtn; aplicarFiltros(); });
   });
+  document.querySelectorAll('[data-horas-btn]').forEach(function (b) {
+    b.addEventListener('click', function () { estado.horas = b.dataset.horasBtn; aplicarFiltros(); });
+  });
   aplicarFiltros();
 </script>
 '@
 
     return '<h2>Detalle</h2>' + $filtros +
         '<p id="contador" class="contador"></p>' +
-        $leyenda +
         '<div class="tabla-wrap"><table id="detalle"><thead>' + $thead + '</thead><tbody>' +
         $filas.ToString() + '</tbody></table></div>' +
         $jsFiltros
@@ -569,9 +698,11 @@ function Write-Report($rows, $stats, $day, $folder) {
   .filtros button { padding: 8px 16px; border: 1px solid var(--boton-borde); background: var(--superficie); color: var(--texto); border-radius: 999px; cursor: pointer; font: inherit; font-size: 15px; }
   .filtros button:hover { border-color: var(--azul); }
   .filtros button.activo { background: var(--azul); border-color: var(--azul); color: #fff; }
+  .filtros button.btn-baja { background: var(--baja-bg); color: var(--baja-txt); border-color: var(--baja-txt); }
+  .filtros button.btn-media { background: var(--media-bg); color: var(--media-txt); border-color: var(--media-txt); }
+  .filtros button.btn-alta { background: var(--alta-bg); color: var(--alta-txt); border-color: var(--alta-txt); }
+  .filtros button.btn-baja.activo, .filtros button.btn-media.activo, .filtros button.btn-alta.activo { outline: 2px solid var(--texto); outline-offset: 2px; }
   .contador { margin: 14px 2px 6px; color: var(--gris); font-size: 15px; }
-  .leyenda { margin: 6px 2px 12px; color: var(--gris); font-size: 15px; }
-  .leyenda .horas { margin-right: 4px; }
   .tabla-wrap { overflow-x: auto; overflow-y: auto; max-height: 66vh; width: 100%; border: 1px solid var(--borde); border-radius: 12px; background: var(--superficie); }
   table { border-collapse: collapse; width: 100%; font-size: 16px; table-layout: auto; }
   thead th { position: sticky; top: 0; background: var(--cabecera); text-align: left; font-weight: 600; font-size: 15px; padding: 13px 14px; border-bottom: 1px solid var(--borde); z-index: 1; }
@@ -647,6 +778,26 @@ function Main {
         Write-Error ("No pude conectarme a Outlook. Verificá que el Outlook de escritorio esté instalado y abierto. " +
             "Detalle: $($_.Exception.Message)")
         exit 1
+    }
+
+    $MapaJPV = @{}
+    if ($ArchivoCasos) {
+        try {
+            $MapaJPV = Get-MapaJPV $ArchivoCasos $ColumnaJPV $ColumnaAssignee
+            Write-Host "Base de JPV cargada: $($MapaJPV.Count) casos."
+        } catch {
+            Write-Warning "No pude leer la base de JPV: $($_.Exception.Message)"
+        }
+    }
+
+    $GrillaHorarios = @{}
+    if ($ArchivoHorarios) {
+        try {
+            $GrillaHorarios = Get-GrillaHorarios $ArchivoHorarios
+            Write-Host "Horarios cargados: $($GrillaHorarios.Count) celdas."
+        } catch {
+            Write-Warning "No pude leer los horarios: $($_.Exception.Message)"
+        }
     }
 
     $me = Get-MyAddresses $namespace
