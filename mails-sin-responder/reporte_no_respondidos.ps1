@@ -445,17 +445,19 @@ function Get-ResponsableHorario($casilla, $fecha) {
 
 
 function Get-Asignado($r, $casilla) {
-    # Sin JPV en el asunto: no se busca. Con JPV: el assignee del Excel tiene prioridad.
-    # Solo si ese assignee es una cola se mira el horario. Si no hay responsable en horario, queda la cola.
-    if (-not $r.JPV) { return 'Sin JPV en el asunto' }
+    # Sin JPV en el asunto: si el mail cae en un bloque del horario, se muestra el responsable de ese bloque.
+    # Con JPV: el assignee del Excel tiene prioridad. Solo si ese assignee es una cola se mira el horario.
+    $responsableHorario = Get-ResponsableHorario $casilla $r.Recibido
+    $hayResponsable = $responsableHorario -and $responsableHorario -ne 'Fuera de horario' -and $responsableHorario -ne 'Sin responsable en el horario'
+    if (-not $r.JPV) {
+        if ($hayResponsable) { return $responsableHorario }
+        return 'Sin JPV en el asunto'
+    }
     if ($MapaJPV.Count -eq 0) { return '' }
     if (-not $MapaJPV.ContainsKey($r.JPV)) { return 'JPV no encontrado' }
     $assignee = $MapaJPV[$r.JPV]
-    if ($AssigneesDeCola -contains $assignee) {
-        $quien = Get-ResponsableHorario $casilla $r.Recibido
-        if ($quien -and $quien -ne 'Fuera de horario' -and $quien -ne 'Sin responsable en el horario') {
-            return "$quien (cola $assignee)"
-        }
+    if (($AssigneesDeCola -contains $assignee) -and $hayResponsable) {
+        return "$responsableHorario (cola $assignee)"
     }
     return $assignee
 }
