@@ -62,7 +62,7 @@ Columnas del detalle: casilla, hora de recepción, remitente, email, asunto, car
 
 Si el asunto tiene un JPV (`JPV` + dígitos + `-` + dígitos), el script busca el assignee en la base `$ArchivoCasos` (columna A = JPV, columna Q = assignee). La ruta real va en `asignacion_local.ps1`, fuera del repo; la plantilla es `asignacion_local.example.ps1`.
 
-- Si el assignee es una cola (`$AssigneesDeCola`: FX12, AutoCV, AutoCV Automation), la columna muestra el responsable de la casilla en ese día y horario, según `$ArchivoHorarios` (filas 4 a 7, columnas D a H = lunes a viernes). Si el horario no está cargado, muestra la cola sin responsable.
+- Si el assignee es una cola (`$AssigneesDeCola`: FX12, AutoCV, AutoCV Automation), la columna muestra el responsable de la casilla en ese día y horario, según `$ArchivoHorarios` (filas 4 a 7, columnas D a H = lunes a viernes). Si no hay responsable en ese horario (fuera de horario, fin de semana, celda vacía o horario no cargado), muestra la cola tal como está en el Excel.
 - Si el JPV no está en la base, la columna dice `JPV no encontrado`.
 - Si el asunto no tiene JPV, la columna dice `Sin JPV en el asunto`. Si no hay base configurada, queda vacía.
 

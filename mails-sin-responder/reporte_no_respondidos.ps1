@@ -445,14 +445,17 @@ function Get-ResponsableHorario($casilla, $fecha) {
 
 
 function Get-Asignado($r, $casilla) {
-    # Sin JPV en el asunto: no se busca. Con JPV: base de assignees. Si el assignee es una cola, va al horario.
+    # Sin JPV en el asunto: no se busca. Con JPV: el assignee del Excel tiene prioridad.
+    # Solo si ese assignee es una cola se mira el horario. Si no hay responsable en horario, queda la cola.
     if (-not $r.JPV) { return 'Sin JPV en el asunto' }
     if ($MapaJPV.Count -eq 0) { return '' }
     if (-not $MapaJPV.ContainsKey($r.JPV)) { return 'JPV no encontrado' }
     $assignee = $MapaJPV[$r.JPV]
     if ($AssigneesDeCola -contains $assignee) {
         $quien = Get-ResponsableHorario $casilla $r.Recibido
-        return "$quien (cola $assignee)"
+        if ($quien -and $quien -ne 'Fuera de horario' -and $quien -ne 'Sin responsable en el horario') {
+            return "$quien (cola $assignee)"
+        }
     }
     return $assignee
 }
