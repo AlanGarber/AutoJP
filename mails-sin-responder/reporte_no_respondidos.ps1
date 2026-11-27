@@ -789,7 +789,11 @@ function Main {
     }
 
     $MapaJPV = @{}
-    if ($ArchivoCasos) {
+    if (-not $ArchivoCasos) {
+        Write-Warning 'No hay ruta de la base de JPV ($ArchivoCasos vacía). La columna Asignado no buscará assignees.'
+    } elseif (-not (Test-Path -LiteralPath $ArchivoCasos)) {
+        Write-Warning "No encuentro la base de JPV: $ArchivoCasos"
+    } else {
         try {
             $MapaJPV = Get-MapaJPV $ArchivoCasos $ColumnaJPV $ColumnaAssignee
             Write-Host "Base de JPV cargada: $($MapaJPV.Count) casos."
@@ -799,7 +803,11 @@ function Main {
     }
 
     $GrillaHorarios = @{}
-    if ($ArchivoHorarios) {
+    if (-not $ArchivoHorarios) {
+        Write-Warning 'No hay ruta de horarios ($ArchivoHorarios vacía). La columna Asignado no usará el horario.'
+    } elseif (-not (Test-Path -LiteralPath $ArchivoHorarios)) {
+        Write-Warning "No encuentro el archivo de horarios: $ArchivoHorarios"
+    } else {
         try {
             $GrillaHorarios = Get-GrillaHorarios $ArchivoHorarios
             Write-Host "Horarios cargados: $($GrillaHorarios.Count) celdas."
@@ -827,6 +835,7 @@ function Main {
         }
         $owner = $mailbox.Direcciones
 
+        Write-Host "[$($mailbox.Nombre)] Texto usado para buscar el horario: '$($mailbox.Horario)'"
         Write-Host "[$($mailbox.Nombre)] Leyendo Bandeja de entrada..."
         $received = Read-Folder $mailbox.Inbox 'ReceivedTime' $dayStart $dayEnd $IncluirSubcarpetas $toReceived
 
