@@ -138,6 +138,7 @@ function Open-Mailbox($namespace, $name, $me) {
     if ($name -eq 'PERSONAL') {
         return [pscustomobject]@{
             Nombre      = 'Personal'
+            Horario     = 'PERSONAL'
             Direcciones = $me
             Inbox       = $namespace.GetDefaultFolder($olFolderInbox)
             Enviados    = $namespace.GetDefaultFolder($olFolderSentMail)
@@ -178,6 +179,8 @@ function Open-Mailbox($namespace, $name, $me) {
 
     return [pscustomobject]@{
         Nombre      = [string]$recipient.Name
+        # Nombre con el que se configuró la casilla: el horario lo usa para saber si es NAFX o AutoCV.
+        Horario     = "$name $($recipient.Name)"
         Direcciones = $addresses
         Inbox       = $inbox
         Enviados    = $sent
@@ -323,7 +326,7 @@ function Read-Folder($folder, $timeField, $from, $to, $recursive, $converter) {
 }
 
 
-function Find-Unanswered($received, $sent, $team, $dayEnd, $mailboxName) {
+function Find-Unanswered($received, $sent, $team, $dayEnd, $mailboxName, $horario) {
     # $team: direcciones de la casilla, tuyas y del equipo. Sus mails no se
     # reportan y, si están en la misma conversación, cuentan como respuesta.
     $replies = New-Object System.Collections.Generic.List[object]
@@ -380,10 +383,10 @@ function Find-Unanswered($received, $sent, $team, $dayEnd, $mailboxName) {
     if ($AgruparPorConversacion) {
         foreach ($group in ($pending | Group-Object ConversationId)) {
             $latest = $group.Group | Sort-Object Recibido -Descending | Select-Object -First 1
-            $rows += New-ReportRow $latest $group.Count $reference $mailboxName
+            $rows += New-ReportRow $latest $group.Count $reference $mailboxName $horario
         }
     } else {
-        foreach ($r in $pending) { $rows += New-ReportRow $r 1 $reference $mailboxName }
+        foreach ($r in $pending) { $rows += New-ReportRow $r 1 $reference $mailboxName $horario }
     }
     $stats.SinResponder = $pending.Count
 
@@ -463,14 +466,14 @@ function Get-Asignado($r, $casilla) {
 }
 
 
-function New-ReportRow($r, $countInThread, $reference, $mailboxName) {
+function New-ReportRow($r, $countInThread, $reference, $mailboxName, $horario) {
     [pscustomobject]@{
         Casilla           = $mailboxName
         Recibido          = $r.Recibido.ToString('yyyy-MM-dd HH:mm')
         De                = $r.De
         Email             = $r.Email
         Asunto            = $r.Asunto
-        Asignado          = Get-Asignado $r $mailboxName
+        Asignado          = Get-Asignado $r $horario
         Carpeta           = $r.Carpeta
         EnCampo           = $r.EnCampo
         HorasSinRespuesta = [math]::Round(($reference - $r.Recibido).TotalHours, 1)
@@ -843,7 +846,7 @@ function Main {
         $team.UnionWith($owner)
         foreach ($address in $Equipo) { if ($address) { [void]$team.Add($address) } }
 
-        $result = Find-Unanswered $received $sent $team $dayEnd $mailbox.Nombre
+        $result = Find-Unanswered $received $sent $team $dayEnd $mailbox.Nombre $mailbox.Horario
         $allRows += $result.Filas
         $allStats += $result.Estadisticas
     }
