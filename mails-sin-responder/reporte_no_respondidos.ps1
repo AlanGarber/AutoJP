@@ -98,6 +98,10 @@ $RutaCasillasLocal = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'casillas_loca
 if (Test-Path $RutaCasillasLocal) { . $RutaCasillasLocal }
 $RutaAsignacionLocal = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'asignacion_local.ps1' } else { Join-Path (Get-Location) 'asignacion_local.ps1' }
 if (Test-Path $RutaAsignacionLocal) { . $RutaAsignacionLocal }
+# Horario fijo (horario_local.ps1, fuera del repo). Si existe, reemplaza la lectura del Excel de horarios.
+$HorarioFijo = @{}
+$RutaHorarioLocal = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'horario_local.ps1' } else { Join-Path (Get-Location) 'horario_local.ps1' }
+if (Test-Path $RutaHorarioLocal) { . $RutaHorarioLocal }
 
 $ErrorActionPreference = 'Stop'
 
@@ -410,7 +414,9 @@ function Get-GrillaHorarios($ruta) {
             $hoja = $libro.Worksheets.Item(1)
             foreach ($fila in $filas) {
                 foreach ($columna in @('D', 'E', 'F', 'G', 'H')) {
-                    $grilla["$columna$fila"] = ([string]$hoja.Range("$columna$fila").Text).Trim()
+                    # Si la celda está combinada, el texto está en la esquina superior izquierda del bloque combinado.
+                    $area = $hoja.Range("$columna$fila").MergeArea
+                    $grilla["$columna$fila"] = ([string]$area.Item(1, 1).Text).Trim()
                 }
             }
         } finally {
@@ -803,7 +809,10 @@ function Main {
     }
 
     $GrillaHorarios = @{}
-    if (-not $ArchivoHorarios) {
+    if ($HorarioFijo.Count -gt 0) {
+        $GrillaHorarios = $HorarioFijo
+        Write-Host "Horarios desde horario_local.ps1: $($GrillaHorarios.Count) celdas."
+    } elseif (-not $ArchivoHorarios) {
         Write-Warning 'No hay ruta de horarios ($ArchivoHorarios vacía). La columna Asignado no usará el horario.'
     } elseif (-not (Test-Path -LiteralPath $ArchivoHorarios)) {
         Write-Warning "No encuentro el archivo de horarios: $ArchivoHorarios"

@@ -16,3 +16,4 @@ config_local.py
 mails-sin-responder/equipo_local.ps1
 mails-sin-responder/casillas_local.ps1
 mails-sin-responder/asignacion_local.ps1
+mails-sin-responder/horario_local.ps1
